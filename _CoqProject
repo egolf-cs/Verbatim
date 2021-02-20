@@ -1,0 +1,14 @@
+-Q . Verbatim
+
+Utils/ltac.v
+
+Verbatim/regex.v
+Verbatim/state.v
+
+Verbatim/matcher.v
+
+Verbatim/lexer/impl.v
+Verbatim/lexer/lemmas.v
+Verbatim/lexer/correct.v
+
+Example.v
