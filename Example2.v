@@ -2,7 +2,6 @@ Require Import List.
 Import ListNotations.
 
 Require Import Ascii.
-Require Export Coq.Init.Byte.
 Require Import String.
 Open Scope string_scope.
 
@@ -11,49 +10,61 @@ Require Import ExtrOcamlString.
 
 From Verbatim Require Import regex.
 From Verbatim Require Import state.
-From Verbatim Require Import matcher.
+From Verbatim Require Import Table.
+From Verbatim Require Import DFA.
 From Verbatim Require Import lexer.impl.
 From Verbatim Require Import Utils.order.
 From Verbatim Require Import Utils.asciiFinite.
 From Verbatim Require Import Utils.ascii_order.
+From Verbatim Require Import concrete.
 
   
 Module Export ST <: state.T.
-  
-  Module Export R <: regex.T.
+
+  Module TabT <: Table.T.
     
-    Module Export Ty <: SIGMA.
+    Module Export R <: regex.T.
       
-      Definition Sigma : Type := ascii.
-      
-      Definition SigmaEnum : list Sigma := asciiEnum.
+      Module Export Ty <: SIGMA.
+        
+        Definition Sigma : Type := ascii.
+        
+        Definition SigmaEnum : list Sigma := asciiEnum.
 
-      Definition Sigma_order (a1 a2 : Sigma) : order := ascii_order a1 a2.
-      
-      Lemma Sigma_finite : forall a : Sigma, In a SigmaEnum.
-      Proof. apply ascii_finite. Qed.
-      
-      Lemma Sigma_dec : forall a a' : Sigma, {a = a'} + {a <> a'}.
-      Proof. apply ascii_dec.  Qed.
+        Definition Sigma_order := ascii_order.
+        
+        Lemma Sigma_finite : forall a : Sigma, In a SigmaEnum.
+        Proof. apply ascii_finite. Qed.
+        
+        Lemma Sigma_dec : forall a a' : Sigma, {a = a'} + {a <> a'}.
+        Proof. apply ascii_dec.  Qed.
 
-    End Ty.
+      End Ty.
       
-    Module Export Defs := regex.DefsFn Ty.
+      Module Export Defs := regex.DefsFn Ty.
       
-  End R.
+    End R.
 
+    Module TabTy <: TABLE R := naiveTable R.
+
+    Module Export Defs := DefsFn R TabTy.
+
+  End TabT.
+
+  Module Export R := TabT.R.
+  Import R.Ty.
   Export R.Defs.Helpers.
   
   Module Export Ty <: STATE R.
+
+    Module Export D := DFAFn TabT. 
     
-    Module Export MAT := MatcherFn R.
+    Definition State := DFA.
+    Definition defState := defDFA.
     
-    Definition State := regex.
-    Definition defState := EmptySet.
-    
-    Definition transition (a : Sigma) (e : State) : State := derivative a e.
-    Definition accepts (z : String) (e : State) : bool := exp_matchb z e.
-    Definition accepting := nullable.
+    Definition transition (a : Sigma) (e : State) : State := DFAtransition a e.
+    Definition accepts (z : String) (e : State) : bool := DFAaccepts z e.
+    Definition accepting := DFAaccepting.
 
     Lemma accepts_nil: forall(fsm : State), accepting fsm = accepts [] fsm.
     Proof. intros fsm. reflexivity. Qed.
@@ -62,16 +73,20 @@ Module Export ST <: state.T.
         accepts cand (transition a fsm) = accepts (a :: cand) fsm.
     Proof. auto. Qed.
 
-    Definition init_state (r : regex) : State := r.
-    Definition init_state_inv (r : State) : regex := r.
+    Definition init_state (r : regex) : State := regex2dfa r.
+    Definition init_state_inv (r : State) : regex := dfa2regex r.
     
     Lemma invert_init_correct : forall r s,
         exp_match s (init_state_inv (init_state r)) <-> exp_match s r.
-    Proof. intros. split; auto. Qed.
+    Proof. intros. simpl. apply TabT.Defs.FillTable.canon_equiv. Qed.
     
-    Lemma accepts_matches : forall(s : String) (fsm : State),
-        true = accepts s fsm <-> exp_match s (init_state_inv fsm).
-    Proof. intros. split; intros; apply match_iff_matchb; auto. Qed.
+    Lemma accepts_matches : forall(s : String) (e : regex),
+        true = accepts s (init_state e) <-> exp_match s e.
+    Proof.
+      split; intros.
+      - symmetry in H. apply r2d_accepts_match. auto.
+      - symmetry. apply r2d_accepts_match. auto.
+    Qed.
     
   End Ty.
     
@@ -179,5 +194,6 @@ Definition ru_rbrace := (toS "RIGHT_BRACE", regex_rbrace).
 
 (*** Compile rules and export ***)
 Definition rus : list Rule := [ru_ws;ru_number;ru_string;ru_true;ru_false;ru_null;ru_colon;ru_comma;ru_lbrack;ru_rbrack;ru_lbrace;ru_rbrace].
+
 
 Extraction "Evaluation/Example/instance.ml" lex rus.

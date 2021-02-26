@@ -8,7 +8,11 @@ From Verbatim Require Import lexer.lemmas.
 
 Module CorrectFn (Import ST : state.T).
 
-  Include LemmasFn ST.
+  Import ST.Defs.
+  Import ST.Ty.
+  Module LEM := LemmasFn ST.
+  Import LEM.
+  Import LEM.IMPL.
 
   Theorem lex'_sound : forall (x : nat) (Ha_x : Acc lt x) code (Ha : Acc lt (length code)) ts rest rus,
       x = length code

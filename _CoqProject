@@ -1,8 +1,12 @@
 -Q . Verbatim
 
 Utils/ltac.v
+Utils/order.v
+Utils/asciiFinite.v
+Utils/ascii_order.v
 
 Verbatim/regex.v
+
 Verbatim/state.v
 
 Verbatim/matcher.v
@@ -11,4 +15,10 @@ Verbatim/lexer/impl.v
 Verbatim/lexer/lemmas.v
 Verbatim/lexer/correct.v
 
+Verbatim/DFA/Table.v
+Verbatim/DFA/DFA.v
+
+Verbatim/DFA/concrete.v
+
 Example.v
+Example2.v

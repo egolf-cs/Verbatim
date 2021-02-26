@@ -7,6 +7,8 @@ From Verbatim Require Import regex.
 
 Module Type STATE (Import R : regex.T).
 
+  Import R.Ty.
+
   Parameter State : Type.
   Parameter defState : State.
   
@@ -14,24 +16,24 @@ Module Type STATE (Import R : regex.T).
   Parameter accepts : String -> State -> bool.
   Parameter accepting : State -> bool.
 
-  Hypothesis accepts_nil: forall(fsm : State), accepting fsm = accepts [] fsm.
-  Hypothesis accepts_transition : forall cand a fsm,
+  Parameter accepts_nil: forall(fsm : State), accepting fsm = accepts [] fsm.
+  Parameter accepts_transition : forall cand a fsm,
       accepts cand (transition a fsm) = accepts (a :: cand) fsm.
 
   Parameter init_state : regex -> State.
   Parameter init_state_inv : State -> regex.
   
-  Hypothesis invert_init_correct : forall r s,
+  Parameter invert_init_correct : forall r s,
       exp_match s (init_state_inv (init_state r)) <-> exp_match s r.
-  Hypothesis accepts_matches : forall(s : String) (fsm : State),
-    true = accepts s fsm <-> exp_match s (init_state_inv fsm).
+  Parameter accepts_matches : forall(s : String) (e : regex),
+    true = accepts s (init_state e) <-> exp_match s e.
 
 End STATE.
 
 Module DefsFn (R : regex.T) (Ty : STATE R).
 
-  Include Ty.
-  Include R.Defs.
+  Import Ty.
+  Import R.Defs.
   
   Module Export Coredefs.
     
@@ -165,28 +167,32 @@ Module DefsFn (R : regex.T) (Ty : STATE R).
         right; intros C; destruct n; inv C; auto.
     Qed.
 
-    Lemma accepting_nilmatch : forall fsm,
-      true = accepting fsm
-      <-> exp_match [] (init_state_inv fsm).
+    Lemma accepting_nilmatch : forall e,
+      true = accepting (init_state e)
+      <-> exp_match [] e.
     Proof.
       intros. split; intros.
-      - apply accepts_matches. rewrite <- accepts_nil. auto.
-      - apply accepts_matches in H. rewrite accepts_nil. auto.
+      - rewrite accepts_nil in H. rewrite accepts_matches in H. auto.
+      - rewrite accepts_nil. rewrite accepts_matches. auto.
     Qed.
 
-    Lemma inv_eq_model : forall(fsm : State),
-        eq_models fsm (init_state_inv fsm).
+    Lemma inv_eq_model : forall(e : regex),
+        eq_models (init_state e) e.
     Proof.
       intros fsm. apply SReq. intros s. rewrite accepts_matches. split; auto.
     Qed.
 
-    Lemma inv_transition : forall cand a fsm,
-        exp_match cand (init_state_inv (transition a fsm))
-        <-> exp_match (a :: cand) (init_state_inv fsm).
+    (*
+    Lemma inv_transition : forall cand a e,
+        exp_match cand (init_state_inv (transition a (init_state e)))
+        <-> exp_match (a :: cand) (init_state_inv (init_state e)).
     Proof.
-      intros. repeat rewrite <- accepts_matches. rewrite accepts_transition.
+      intros. repeat rewrite <- accepts_matches.
+      repeat rewrite accepts_matches.
+      rewrite invert_init_correct.
+      rewrite accepts_transition.
       split; auto.
-    Qed.
+    Qed.*)
 
     Lemma invert_init_correct_max : forall r p code,
         re_max_pref code (init_state_inv (init_state r)) p
@@ -226,6 +232,8 @@ Module Type T.
   Declare Module Ty : STATE R.
   Declare Module Defs : DefsT R Ty.
   Export R.
+  Export R.Ty.
+  Export R.Defs.
   Export Ty.
   Export Defs.
 End T.

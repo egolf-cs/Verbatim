@@ -9,7 +9,8 @@ From Verbatim Require Import state.
 
 Module ImplFn (Import ST : state.T).
 
-  Include ST.Defs.
+  Import ST.Ty.
+  Import ST.Defs.
   
   Module Export MPref.
     
