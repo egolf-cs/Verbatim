@@ -26,7 +26,9 @@ Module Type STATE (Import R : regex.T).
   Parameter invert_init_correct : forall r s,
       exp_match s (init_state_inv (init_state r)) <-> exp_match s r.
   Parameter accepts_matches : forall(s : String) (e : regex),
-    true = accepts s (init_state e) <-> exp_match s e.
+      true = accepts s (init_state e) <-> exp_match s e.
+
+  Parameter is_trap : State -> bool.
 
 End STATE.
 

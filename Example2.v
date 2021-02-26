@@ -87,6 +87,12 @@ Module Export ST <: state.T.
       - symmetry in H. apply r2d_accepts_match. auto.
       - symmetry. apply r2d_accepts_match. auto.
     Qed.
+
+    Definition is_trap (fsm : State) : bool :=
+      match fsm with
+      | (EmptySet, _, _) => true
+      | _ => false
+      end.
     
   End Ty.
     

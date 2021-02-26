@@ -72,6 +72,8 @@ Module Export ST <: state.T.
     Lemma accepts_matches : forall(s : String) (fsm : State),
         true = accepts s fsm <-> exp_match s (init_state_inv fsm).
     Proof. intros. split; intros; apply match_iff_matchb; auto. Qed.
+
+    Definition is_trap (fsm : State) : bool := regex_eq EmptySet fsm.
     
   End Ty.
     

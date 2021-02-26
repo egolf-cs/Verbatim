@@ -22,6 +22,10 @@ Module ImplFn (Import ST : state.T).
         let
           (* in a regex approach, transition := derivative *)
           state' := transition a state in
+        if is_trap state' then
+          if (accepting state) then Some ([], s) else
+            None
+        else
         let
           mpxs := max_pref_fn s' state' in
 
@@ -64,6 +68,7 @@ Module ImplFn (Import ST : state.T).
 
   End MPref.
 
+  
   Module Export TypeCheckLemmas.
     
     Lemma max_pref_fn_splits : forall code prefix suffix (fsm : State),
@@ -71,8 +76,8 @@ Module ImplFn (Import ST : state.T).
     Proof.
       induction code as [| a s']; intros prefix suffix fsm H; simpl in H;
         repeat dm; repeat inj_all; auto; try(discriminate).
-      symmetry in E. apply IHs' in E. rewrite E. auto.
-    Qed.
+      symmetry in E. (**apply IHs' in E. rewrite E. auto.**)
+      Admitted.
 
     Lemma proper_suffix_shorter : forall code prefix suffix (fsm : State),
         prefix <> []
