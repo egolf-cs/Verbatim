@@ -12,19 +12,24 @@ Module Type STATE (Import R : regex.T).
   Parameter State : Type.
   Parameter defState : State.
   
-  Parameter transition : Sigma -> State -> State.
+  Parameter mk_transition : regex -> (Sigma -> State -> State).
   Parameter accepts : String -> State -> bool.
   Parameter accepting : State -> bool.
 
   Parameter accepts_nil: forall(fsm : State), accepting fsm = accepts [] fsm.
-  Parameter accepts_transition : forall cand a fsm,
-      accepts cand (transition a fsm) = accepts (a :: cand) fsm.
+  Parameter accepts_transition : forall cand a fsm e,
+      accepts cand ((mk_transition e) a fsm) = accepts (a :: cand) fsm.
 
   Parameter init_state : regex -> State.
   Parameter init_state_inv : State -> regex.
   
   Parameter invert_init_correct : forall r s,
       exp_match s (init_state_inv (init_state r)) <-> exp_match s r.
+
+  Parameter accepts_dt : forall z a e,
+      accepts z (init_state (derivative a e))
+      = accepts z ((mk_transition e) a (init_state e)).
+  
   Parameter accepts_matches : forall(s : String) (e : regex),
     true = accepts s (init_state e) <-> exp_match s e.
 
@@ -34,6 +39,7 @@ Module DefsFn (R : regex.T) (Ty : STATE R).
 
   Import Ty.
   Import R.Defs.
+  Import R.Ty.
   
   Module Export Coredefs.
     

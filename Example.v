@@ -50,8 +50,9 @@ Module Export ST <: state.T.
     
     Definition State := regex.
     Definition defState := EmptySet.
+    Definition startState := EmptySet.
     
-    Definition transition (a : Sigma) (e : State) : State := derivative a e.
+    Definition mk_transition (e' : State) (a : Sigma) (e : State) : State := derivative a e.
     Definition accepts (z : String) (e : State) : bool := exp_matchb z e.
     Definition accepting := nullable.
 
@@ -59,7 +60,7 @@ Module Export ST <: state.T.
     Proof. intros fsm. reflexivity. Qed.
 
     Lemma accepts_transition : forall cand a fsm,
-        accepts cand (transition a fsm) = accepts (a :: cand) fsm.
+        accepts cand ((mk_transition startState) a fsm) = accepts (a :: cand) fsm.
     Proof. auto. Qed.
 
     Definition init_state (r : regex) : State := r.
@@ -72,6 +73,13 @@ Module Export ST <: state.T.
     Lemma accepts_matches : forall(s : String) (fsm : State),
         true = accepts s fsm <-> exp_match s (init_state_inv fsm).
     Proof. intros. split; intros; apply match_iff_matchb; auto. Qed.
+
+    Lemma accepts_dt : forall z a e,
+      accepts z (init_state (derivative a e))
+      = accepts z ((mk_transition startState) a (init_state e)).
+    Proof.
+      auto.
+    Qed.
     
   End Ty.
     

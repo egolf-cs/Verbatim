@@ -148,74 +148,13 @@ Module LemmasFn (Import ST : state.T).
         * apply H0.
         * apply H2.
   Qed.
-
-  (**
-  Fixpoint derivative_list (e : regex) (bs : list Sigma) :=
-    match bs with
-    | [] => e
-    | c :: cs => derivative_list (derivative c e) cs
-    end.
-
-  Lemma re_no_max_pref_list : forall code e,
-      re_no_max_pref code e <-> re_no_max_pref [] (derivative_list e code).
-  Proof.
-  Admitted.
-
-  Lemma re_no_max_pref_cons : forall code e a,
-      re_no_max_pref (a :: code) e <-> re_no_max_pref code (derivative a e).
-  Proof.
-    induction code; split; intros.
-      - inv H. apply re_MP0. intros. destruct cand.
-        + specialize (H1 [a]). assert(L := self_prefix [a]). apply H1 in L.
-          intros C. destruct L. apply der_match. auto.
-        + inv H. destruct H0. discriminate.
-      - inv H. apply re_MP0. intros.
-      - apply re_no_max_pref_list in H.
-        apply re_no_max_pref_list. auto.
-  Qed.*)
-
-  (*
-  Lemma mpref_fn_cons__None : forall code e a,
-        None = max_pref_fn code (init_state (derivative a e))
-        <-> None = max_pref_fn (a :: code) (init_state e).
-  Admitted.*)
-
+       
   
-  Theorem re_max_pref_correct__None : forall(code : String) (e : regex),
-      None = max_pref_fn code (init_state e)
-      -> re_no_max_pref code e.
-  Admitted.
-  (*
-  Proof.
-    split;
-      generalize dependent e.
-    {
-      induction code; intros.
-      - simpl. dm. inv H. specialize (H1 []). destruct H1.
-        + apply nil_is_prefix.
-        + rewrite accepts_nil in E. apply accepts_matches. auto. 
-      - apply re_no_max_pref_cons in H. apply IHcode in H.
-        apply mpref_fn_cons__None. auto.
-    }
-    {
-      induction code; intros.
-      - simpl in H. dm; try(discriminate).
-        apply re_MP0. intros.
-        destruct cand.
-        + intros C. apply accepting_nilmatch in C. rewrite E in C. discriminate.
-        + inv H0. destruct H1. discriminate.
-      - apply re_no_max_pref_cons. apply mpref_fn_cons__None in H.
-        apply IHcode; auto.
-    }
-  Qed.*)
-
-        
-
-        
-  (*
   Theorem re_max_pref_correct__None : forall(code : String) (fsm : State),
       re_no_max_pref code (init_state_inv fsm)
       <-> None = max_pref_fn code fsm.
+  Admitted.
+  (*
   Proof.
     intros code fsm. split.
     {
@@ -323,21 +262,18 @@ Module LemmasFn (Import ST : state.T).
     - simpl in H. repeat dm.
       + injection H. intros; subst. Admitted.
 
-  (*
-  Lemma foo : forall code p a e,
-    re_max_pref (a :: code) e (a :: p)
-    -> re_max_pref code (derivative a e) p.
-  Admitted.
 
-  Lemma bar : forall code a e,
-    re_max_pref (a :: code) e []
-    -> re_no_max_pref code (derivative a e).
-  Admitted.*)
-
-
-  Lemma boo : forall code fsm a,
-    max_pref_fn code (transition a fsm)
-    = max_pref_fn (a :: code) fsm.
+  Lemma boo : forall code px sx fsm a,
+      max_pref_fn code (transition a fsm) = Some (px, sx)
+      <-> max_pref_fn (a :: code) fsm = Some (a :: px, sx).
+  Proof.
+    induction code; intros.
+    - simpl. repeat dm.
+      + split; intros; injection H; intros; subst; auto.
+      + split; intros; try(discriminate).
+      + split; intros; try(discriminate).
+    - simpl. repeat dm.
+      
   Admitted.
   
 
@@ -346,34 +282,41 @@ Module LemmasFn (Import ST : state.T).
     | [] => fsm
     | c :: cs => transition_list cs (transition c fsm)
     end.
+
+  
+  Fixpoint transition_list' (bs : list Sigma) (fsm : State) :=
+    match bs with
+    | [] => fsm
+    | c :: cs => transition c (transition_list' cs fsm)
+    end.
   
   Lemma trans_hop : forall bs a fsm,
     transition a (transition_list bs fsm)
     = transition_list (bs ++ [a]) fsm.
-  Admitted.
+  Proof.
+    induction bs; intros; auto.
+    simpl. auto.
+  Qed.
   
   Fixpoint derivative_list (bs : list Sigma) (e : regex) :=
     match bs with
     | [] => e
     | c :: cs => derivative_list cs (derivative c e)
     end.
+  
+  Fixpoint derivative_list' (bs : list Sigma) (e : regex) :=
+    match bs with
+    | [] => e
+    | c :: cs => derivative c (derivative_list' cs e)
+    end.
 
   Lemma deriv_hop : forall bs a e,
     derivative a (derivative_list bs e)
     = derivative_list (bs ++ [a]) e.
-  Admitted.
-
-  (*
-  Lemma accepts_dt_list : forall code bs e,
-      accepts code (transition_list bs (init_state e)) =
-      accepts code (init_state (derivative_list bs e)).
-  Admitted.
-
-  Lemma accepts_dt : forall code b e,
-      accepts code (transition b (init_state e)) =
-      accepts code (init_state (derivative b e)).
-  Admitted. *)
-
+  Proof.
+    induction bs; intros; auto.
+    simpl. auto.
+  Qed.
   
   Lemma accepting_dt : forall b e,
       accepting (transition b (init_state e)) =
@@ -389,46 +332,33 @@ Module LemmasFn (Import ST : state.T).
       rewrite <- accepts_matches. rewrite <- accepts_nil. auto.
   Qed.
 
-  Lemma accepting_dt_list' : forall bs a e,
-      accepting (transition_list bs (init_state e)) =
-      accepting (init_state (derivative_list bs e))
-      /\
-      (* maybe replace transition/derivative with their list versions *)
-      accepting (transition_list bs (transition a (init_state e))) =
-      accepting (transition_list bs (init_state (derivative a e))).
+  Lemma accepts_ing_t : forall z fsm,
+      accepts z fsm = accepting (transition_list z fsm).
   Proof.
-    induction bs; intros.
-    - split; simpl; auto.
-      apply accepting_dt.
-    - assert(IHbs1 :forall (e : regex),
-                accepting (transition_list bs (init_state e)) =
-                accepting (init_state (derivative_list bs e))).
-      { intros. apply IHbs. auto. }
-      assert(IHbs2 :forall (a : Sigma) (e : regex),
-                accepting (transition_list bs (transition a (init_state e))) =
-                accepting (transition_list bs (init_state (derivative a e)))).
-      { intros. apply IHbs. }
-      clear IHbs.
-      split.
-      + simpl. rewrite IHbs2. apply IHbs1.
-      + simpl. rewrite IHbs2.
-        (*
-        assert(accepting (transition_list bs (init_state (derivative a (derivative a0 e))))
-               = accepting (transition_list bs (init_state (derivative_list [a0; a] e)))).
-        { auto. }
-        rewrite H. clear H.*)
-        rewrite IHbs1.
-        Admitted.
+    induction z; intros.
+    - simpl. rewrite <- accepts_nil. auto.
+    - rewrite <- accepts_transition. rewrite IHz. simpl.
+      unfold transition. auto.
+  Qed.
 
+  Lemma accepts_ing_d : forall z e,
+      accepts z (init_state e) = accepting (init_state (derivative_list z e)).
+  Proof.
+    induction z; intros.
+    - simpl. symmetry. apply accepts_nil.
+    - rewrite <- accepts_transition. rewrite <- accepts_dt.
+      rewrite IHz. simpl. auto.
+  Qed.
+  
   Lemma accepting_dt_list : forall bs e,
       accepting (transition_list bs (init_state e)) =
       accepting (init_state (derivative_list bs e)).
   Proof.
-    destruct bs; intros; auto.
-    - apply accepting_dt_list'. auto.
-  Qed.      
+    intros.
+    rewrite <- accepts_ing_t. rewrite <- accepts_ing_d. auto.
+  Qed.
     
-  Lemma far_list : forall code bs e a,
+  Lemma mpref_dt_list : forall code bs e a,
       max_pref_fn code (transition a (init_state e))
       = max_pref_fn code (init_state (derivative a e))
       /\
@@ -464,17 +394,67 @@ Module LemmasFn (Import ST : state.T).
       { intros. specialize (IHcode bs e0 a). apply IHcode. }
       clear IHcode.
       split.
-      + repeat rewrite <- boo.
-        rewrite IHcode0.
-        assert(max_pref_fn code (transition a (transition a0 (init_state e)))
-               =  max_pref_fn code (transition_list [a0; a] (init_state e))).
-        { auto. }
-        assert(max_pref_fn code (init_state (derivative a (derivative a0 e)))
-               = max_pref_fn code (init_state (derivative_list [a0; a] e))).
-        { auto. }
-        rewrite H. rewrite H0. auto.
-      + repeat rewrite <- boo.
-        rewrite IHcode0. simpl. auto.
+      + destruct (max_pref_fn (a :: code) (transition a0 (init_state e))) eqn:E.
+        * destruct p. symmetry.
+          destruct p.
+          -- simpl in *. repeat dm; try(discriminate).
+             ++ rewrite IHcode0 in E3.
+                assert(max_pref_fn code (transition a (transition a0 (init_state e)))
+                       =  max_pref_fn code (transition_list [a0; a] (init_state e))).
+                { auto. }
+                assert(max_pref_fn code (init_state (derivative a (derivative a0 e)))
+                       = max_pref_fn code (init_state (derivative_list [a0; a] e))).
+                { auto. }
+                rewrite H in *. rewrite H0 in *.
+                rewrite IHcode1 in *. rewrite E3 in *. discriminate.
+             ++ exfalso.
+               clear IHcode0 IHcode1 E0 E2 E E3.
+                assert(
+                    accepting (transition a (init_state (derivative a0 e)))
+                    = accepting (transition_list [a] (init_state (derivative a0 e)))
+                  ).
+                { auto. }
+                rewrite H in *. clear H.
+                assert(
+                    accepting (transition a (transition a0 (init_state e)))
+                    = accepting (transition_list [a0; a] (init_state e))
+                  ).
+                { auto. }
+                rewrite H in *. clear H.
+                rewrite accepting_dt_list in *.
+                simpl in *. rewrite E1 in *. discriminate.
+             ++ rewrite accepting_dt in *. rewrite E5 in *. discriminate.
+          -- assert(a = s0).
+             {
+               simpl in E.
+               repeat dm; try(discriminate);
+                 injection E; intros; subst; auto.
+             }
+             subst.
+             rewrite <- boo. rewrite <- boo in E.
+             rewrite IHcode0.
+             assert(max_pref_fn code (transition s0 (transition a0 (init_state e)))
+                    =  max_pref_fn code (transition_list [a0; s0] (init_state e))).
+             { auto. }
+             assert(max_pref_fn code (init_state (derivative s0 (derivative a0 e)))
+                    = max_pref_fn code (init_state (derivative_list [a0; s0] e))).
+             { auto. }
+             rewrite H in *. rewrite H0 in *. clear H H0.
+             rewrite <- IHcode1. auto.
+        * simpl in *. repeat dm; try(discriminate).
+          -- clear E. rewrite IHcode0 in E3. 
+             assert(max_pref_fn code (transition a (transition a0 (init_state e)))
+                    =  max_pref_fn code (transition_list [a0; a] (init_state e))).
+             { auto. }
+             rewrite H in *. clear H.
+             assert(max_pref_fn code (init_state (derivative a (derivative a0 e)))
+                    = max_pref_fn code (init_state (derivative_list [a0; a] e))).
+             { auto. }
+             rewrite H in *. clear H.
+             rewrite IHcode1 in *. rewrite E3 in *. discriminate.
+          -- rewrite accepting_dt in E4. admit.
+          -- admit.        
+      + unfold transition_list. unfold derivative_list. auto.
     - assert(IHcode0 : forall (e : regex) (a : Sigma),
            max_pref_fn code (transition a (init_state e)) =
            max_pref_fn code (init_state (derivative a e))).
@@ -495,18 +475,26 @@ Module LemmasFn (Import ST : state.T).
       clear IHbs.
       split.
       + auto.
-      + repeat rewrite <- boo.
+      + destruct (max_pref_fn (a :: code) (transition_list (a0 :: bs) (init_state e))) eqn:E.
+        * destruct p. destruct p.
+          -- simpl in E. simpl. repeat dm; try(discriminate).
+             ++ 
+        
+
+
+        (*
+        repeat rewrite <- boo.
         rewrite IHcode0.
         rewrite trans_hop. rewrite deriv_hop.
-        auto.
-  Qed.
+        auto.*)
+  Admitted.
         
   
-  Lemma far : forall code a e,
+  Lemma mpref_dt : forall code a e,
       max_pref_fn code (transition a (init_state e))
       = max_pref_fn code (init_state (derivative a e)).
   Proof.
-    assert(L := far_list).
+    assert(L := mpref_dt_list).
     intros. specialize(L code [] e a). destruct L. auto.
   Qed.
           
@@ -555,7 +543,7 @@ Module LemmasFn (Import ST : state.T).
         + exists (a :: code). inv H. simpl.
           dm.
           * destruct p. symmetry in E.
-            rewrite far in E.
+            rewrite mpref_dt in E.
             assert (Ae : exists q, Some (p, q) = max_pref_fn code (init_state (derivative a e))).
             { exists s. apply E. }
             apply IHcode in Ae. inv Ae.
@@ -585,7 +573,7 @@ Module LemmasFn (Import ST : state.T).
           simpl. dm; symmetry in E.
           * destruct p0.
             assert (Ae : exists q, Some (p0, q) = max_pref_fn code (init_state (derivative a e))).
-            { exists s. symmetry in E. rewrite far in E. auto. }
+            { exists s. symmetry in E. rewrite mpref_dt in E. auto. }
             apply IHcode in Ae. inv Ae. inv H1. destruct H5. apply max_pref_fn_splits in E.
             (* Want to show p = p0 *)
             assert (A0 : p ++_= p ++ x).
@@ -614,12 +602,12 @@ Module LemmasFn (Import ST : state.T).
             -- rewrite A. rewrite A in E. apply app_inv_head in E. rewrite E. reflexivity.
             -- apply As.
             -- apply Ap.
-          * rewrite far in E. apply re_max_pref_correct__None in E. inv E.
+          * rewrite mpref_dt in E. apply re_max_pref_correct__None in E. inv E.
             assert (A0 : p = []).
             {
               assert (A1 : p ++_= p ++ x).
               { apply pref_def. exists x. reflexivity. }
-              apply H1 in A1. destruct A1. apply der_match. auto.
+              apply H1 in A1. destruct A1. apply invert_init_correct. apply der_match. auto.
             }
             assert (A1 : accepting (transition a (init_state e)) = true).
             {
@@ -637,7 +625,7 @@ Module LemmasFn (Import ST : state.T).
             -- dm.
                ++ discriminate.
                ++ dm.
-                  ** symmetry in E. rewrite far in E.
+                  ** symmetry in E. rewrite mpref_dt in E.
                      apply re_max_pref_correct__None in E. inv E. destruct cand.
                      { left. omega. }
                      {
@@ -645,13 +633,14 @@ Module LemmasFn (Import ST : state.T).
                        unfold not. intros C. assert (A : cand ++_= code).
                        { apply pref_def. exists x0. apply I1. }
                        
-                       apply H1 in A. destruct A. subst. apply der_match; auto.
+                       apply H1 in A. destruct A. subst.
+                       apply invert_init_correct. apply der_match; auto.
                      }
                   ** discriminate.
           * simpl in H.
             dmh; symmetry in E.
             -- destruct p0. injection H. intros I1 I2 I3.
-               rewrite far in E.
+               rewrite mpref_dt in E.
                assert (Ae : exists q, Some (p0, q) = max_pref_fn code (init_state (derivative a e))).
                { exists s0. apply E. }
                apply IHcode in Ae. inv Ae. destruct cand.
@@ -662,7 +651,7 @@ Module LemmasFn (Import ST : state.T).
                   apply H3 in Apref. destruct Apref.
                   ** left. simpl. omega.
                   ** right. intros C. destruct H4. apply der_match. auto.
-            -- rewrite far in E. apply re_max_pref_correct__None in E. inv E.
+            -- rewrite mpref_dt in E. apply re_max_pref_correct__None in E. inv E.
                assert (A0 : accepting (transition a (init_state e)) = true).
                {
                  repeat dm;
@@ -674,6 +663,7 @@ Module LemmasFn (Import ST : state.T).
                symmetry. rewrite accepts_nil in *. rewrite accepts_transition in A0.
                symmetry in A0. symmetry.
                rewrite accepts_matches in *.
+               apply invert_init_correct.
                apply der_match. apply A0.
     }
   Qed.
@@ -922,12 +912,14 @@ Module LemmasFn (Import ST : state.T).
   Qed.
   *)
 
-  (*
+  
   Lemma no_tokens_no_pref : forall code rest rus l r Ha,
       lex' (map init_srule rus) code Ha = ([], rest)
       -> In (l, r) rus
       -> re_max_pref code r [] \/ re_no_max_pref code r.
   Proof.
+  Admitted.
+    (*
     intros code rest rus l r Ha Hlex Hin.
     apply lex'_cases in Hlex. destruct Hlex.
     destruct H0; destruct (max_of_prefs (max_prefs code (map init_srule rus))) eqn:E0;
