@@ -276,47 +276,6 @@ Module LemmasFn (Import ST : state.T).
       
   Admitted.
   
-
-  Fixpoint transition_list (bs : list Sigma) (fsm : State) :=
-    match bs with
-    | [] => fsm
-    | c :: cs => transition_list cs (transition c fsm)
-    end.
-
-  
-  Fixpoint transition_list' (bs : list Sigma) (fsm : State) :=
-    match bs with
-    | [] => fsm
-    | c :: cs => transition c (transition_list' cs fsm)
-    end.
-  
-  Lemma trans_hop : forall bs a fsm,
-    transition a (transition_list bs fsm)
-    = transition_list (bs ++ [a]) fsm.
-  Proof.
-    induction bs; intros; auto.
-    simpl. auto.
-  Qed.
-  
-  Fixpoint derivative_list (bs : list Sigma) (e : regex) :=
-    match bs with
-    | [] => e
-    | c :: cs => derivative_list cs (derivative c e)
-    end.
-  
-  Fixpoint derivative_list' (bs : list Sigma) (e : regex) :=
-    match bs with
-    | [] => e
-    | c :: cs => derivative c (derivative_list' cs e)
-    end.
-
-  Lemma deriv_hop : forall bs a e,
-    derivative a (derivative_list bs e)
-    = derivative_list (bs ++ [a]) e.
-  Proof.
-    induction bs; intros; auto.
-    simpl. auto.
-  Qed.
   
   Lemma accepting_dt : forall b e,
       accepting (transition b (init_state e)) =
@@ -330,32 +289,6 @@ Module LemmasFn (Import ST : state.T).
       rewrite accepts_nil. rewrite accepts_transition.
       symmetry. rewrite accepts_matches. apply der_match.
       rewrite <- accepts_matches. rewrite <- accepts_nil. auto.
-  Qed.
-
-  Lemma accepts_ing_t : forall z fsm,
-      accepts z fsm = accepting (transition_list z fsm).
-  Proof.
-    induction z; intros.
-    - simpl. rewrite <- accepts_nil. auto.
-    - rewrite <- accepts_transition. rewrite IHz. simpl.
-      unfold transition. auto.
-  Qed.
-
-  Lemma accepts_ing_d : forall z e,
-      accepts z (init_state e) = accepting (init_state (derivative_list z e)).
-  Proof.
-    induction z; intros.
-    - simpl. symmetry. apply accepts_nil.
-    - rewrite <- accepts_transition. rewrite <- accepts_dt.
-      rewrite IHz. simpl. auto.
-  Qed.
-  
-  Lemma accepting_dt_list : forall bs e,
-      accepting (transition_list bs (init_state e)) =
-      accepting (init_state (derivative_list bs e)).
-  Proof.
-    intros.
-    rewrite <- accepts_ing_t. rewrite <- accepts_ing_d. auto.
   Qed.
     
   Lemma mpref_dt_list : forall code bs e a,

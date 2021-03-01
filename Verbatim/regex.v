@@ -182,6 +182,12 @@ Module DefsFn (Ty : SIGMA).
         | Union r1 r2 => Union (derivative a r1) (derivative a r2)
         | Star r => App (derivative a r) (Star r)
         end.
+
+      Fixpoint derivative_list (bs : list Sigma) (e : regex) :=
+        match bs with
+        | [] => e
+        | c :: cs => derivative_list cs (derivative c e)
+        end.
       
     End Regexes.
 
@@ -403,6 +409,20 @@ Module DefsFn (Ty : SIGMA).
             + reflexivity.
         }
       Qed.
+
+      Lemma derivative_list_cons : forall bs b e,
+          derivative_list (b :: bs) e = derivative_list bs (derivative b e).
+      Proof.
+        auto.
+      Qed.
+
+      Lemma derivative_list_str : forall bs e,
+          exp_match [] (derivative_list bs e) <-> exp_match bs e.
+      Proof.
+        induction bs; intros; auto.
+        - simpl. split; auto.
+        - simpl. rewrite IHbs. split; apply der_match.
+      Qed.
       
     End MatchSpecLemmas.
 
@@ -441,6 +461,7 @@ Module DefsFn (Ty : SIGMA).
 
     End Helpers.
 
+    (*
     Module Export Similarity.
 
       Module Export Spec.
@@ -533,7 +554,7 @@ Module DefsFn (Ty : SIGMA).
             re_sim_prop e1 e2 -> re_sim e1 e2 = true.
         Proof.
           intros.
-          inv H; try(eapply re_sim_correctB_trans; eauto; reflexivity);
+                  inv H; try(eapply re_sim_correctB_trans; eauto; reflexivity);
             unfold re_sim;
             try(rewrite Bool.orb_true_iff; left; rewrite <- regex_eq_correct; reflexivity);
             repeat dm; try(discriminate);
@@ -667,6 +688,7 @@ Module DefsFn (Ty : SIGMA).
       End Correct.
 
     End Similarity.
+    *)
 
 End DefsFn.
 

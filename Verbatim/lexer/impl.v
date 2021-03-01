@@ -14,7 +14,7 @@ Module ImplFn (Import ST : state.T).
   
   Module Export MPref.
     
-    Fixpoint max_pref_fn (s : String) (state : State) (transition : Sigma -> State -> State)
+    Fixpoint max_pref_fn (s : String) (state : State)
     : option (Prefix * Suffix):=
       match s with
       (* in a regex approach, accepting := nullable *)
@@ -24,7 +24,7 @@ Module ImplFn (Import ST : state.T).
           (* in a regex approach, transition := derivative *)
           state' := transition a state in
         let
-          mpxs := max_pref_fn s' state' transition in
+          mpxs := max_pref_fn s' state' in
 
         match mpxs with
         | None => if (accepting state') then Some ([a], s') else
@@ -35,13 +35,13 @@ Module ImplFn (Import ST : state.T).
       end.
 
     Definition extract_fsm_for_max (code : String)
-               (sru : (Label * State * (Sigma -> State -> State))) :=
+               (sru : (Label * State)) :=
       match sru with
-        (a, fsm, transition) => (a, max_pref_fn code fsm transition)
+        (a, fsm) => (a, max_pref_fn code fsm)
       end.
 
     Definition max_prefs (code : String)
-               (erules : list (Label * State * (Sigma -> State -> State)))
+               (erules : list (Label * State))
       :=
       map (extract_fsm_for_max code) erules.
 
@@ -70,20 +70,20 @@ Module ImplFn (Import ST : state.T).
 
   Module Export TypeCheckLemmas.
     
-    Lemma max_pref_fn_splits : forall code prefix suffix (fsm fsm': State),
-      Some (prefix, suffix) = max_pref_fn code fsm (mk_transition fsm') -> code = prefix ++ suffix.
+    Lemma max_pref_fn_splits : forall code prefix suffix (fsm : State),
+      Some (prefix, suffix) = max_pref_fn code fsm -> code = prefix ++ suffix.
     Proof.
       induction code as [| a s']; intros; simpl in H;
         repeat dm; repeat inj_all; auto; try(discriminate).
       symmetry in E. apply IHs' in E. rewrite E. auto.
     Qed.
 
-    Lemma proper_suffix_shorter : forall code prefix suffix (fsm fsm' : State),
+    Lemma proper_suffix_shorter : forall code prefix suffix (fsm : State),
         prefix <> []
-        -> Some (prefix, suffix) = max_pref_fn code fsm (mk_transition fsm')
+        -> Some (prefix, suffix) = max_pref_fn code fsm
         -> length suffix < length code.
     Proof.
-      intros code prefix suffix fsm fsm'. intros Hneq Heq.
+      intros code prefix suffix fsm. intros Hneq Heq.
       apply max_pref_fn_splits in Heq. rewrite Heq.
       replace (length (prefix ++ suffix)) with ((length prefix) + (length suffix)).
       - apply Nat.lt_add_pos_l. destruct prefix.
@@ -112,13 +112,13 @@ Module ImplFn (Import ST : state.T).
       intros code rules label s l suffix Ha Heq.
       apply Acc_inv with (x := length code).
       - apply Ha.
-      - assert(A2 : exists(fsm fsm' : State), Some (s :: l, suffix)
-                                    = max_pref_fn code fsm (mk_transition fsm')).
+      - assert(A2 : exists(fsm : State), Some (s :: l, suffix)
+                                    = max_pref_fn code fsm).
         {
           induction rules.
           - simpl in Heq. discriminate.
           - symmetry in Heq. apply max_first_or_rest in Heq. destruct Heq.
-            + destruct a. simpl in H. exists fsm. exists s0. injection H; intros; subst. apply H0.
+            + destruct a. simpl in H. exists s0. injection H; intros; subst. apply H0.
             + apply IHrules. destruct rules.
               * simpl in H. discriminate.
               * rewrite H. reflexivity.

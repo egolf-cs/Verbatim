@@ -99,6 +99,7 @@ Module DFAFn (TabT : Table.T).
 
     Module Import Mat := MatcherFn TabT.R.
 
+    (*
     Lemma re_sim_nullable : forall e e',
       re_sim e e' = true
       -> nullable e = nullable e'.
@@ -107,7 +108,7 @@ Module DFAFn (TabT : Table.T).
       unfold re_equiv in H. specialize (H []).
       do 2 rewrite <- nullable_bridge in H.
       apply Bool.eq_true_iff_eq. split; intros; symmetry; apply H; symmetry; auto.
-    Qed.
+    Qed.*)
 
     Lemma In_fin_nullable : forall es x,
       In x (fin_states es)
@@ -249,6 +250,106 @@ Module DFAFn (TabT : Table.T).
         DFAaccepts z dfa = true <-> exp_match z (dfa2regex dfa).
     Proof.
       intros.*)
+
+    
+
+    Lemma DFAaccepts_dt : forall bs a e,
+        DFAaccepts bs (regex2dfa (derivative a e)) = DFAaccepts bs (DFAtransition a (regex2dfa e)).
+    Proof.
+      intros. rewrite <- accepts_cons. destruct (DFAaccepts bs (regex2dfa (derivative a e))) eqn:E.
+      - symmetry. rewrite r2d_accepts_match in *. apply der_match. auto.
+      - symmetry. rewrite false_not_true in *. intros C. destruct E.
+        rewrite r2d_accepts_match in *. apply der_match. auto.
+    Qed.
+
+    Lemma exact_table_moot : forall bs e T es,
+        derived T
+        -> 
+        DFAaccepts bs (e, T, fin_states es) =
+        DFAaccepts bs (regex2dfa e).
+    Proof.
+      induction bs; intros; auto.
+      - simpl. repeat dm.
+        + apply find_some in E. destruct E. apply In_fin_nullable in H0.
+          apply regex_eq_correct in H1. rewrite H1 in *. clear H1.
+          symmetry in H0. rewrite nullable_bridge in *.
+          assert(L := canon_equiv r []). rewrite L. auto.
+        + apply find_some in E0. destruct E0. apply In_fin_nullable in H0.
+          apply regex_eq_correct in H1. rewrite <- H1 in *. clear H1.
+          symmetry. symmetry in H0. rewrite nullable_bridge in *.
+          assert(L := canon_equiv e []). rewrite <- L. auto.
+        + clear E E0.
+          destruct (nullable e) eqn:E.
+          * symmetry in E. rewrite nullable_bridge in *.
+            assert(L := canon_equiv e []). rewrite L. auto.
+          * symmetry. rewrite false_not_true in *. intros C. destruct E.
+            symmetry. symmetry in C. rewrite nullable_bridge in *.
+            assert(L := canon_equiv e []). rewrite <- L. auto.
+      - rewrite accepts_deriv; auto. 2: { intros. apply accepts_matchb. auto. }
+        rewrite IHbs; auto. rewrite accepts_cons.
+        apply DFAaccepts_dt.
+    Qed.
+
+      
+    Theorem DFAaccepting_dt_list : forall bs e,
+        DFAaccepting (DFAtransition_list bs (regex2dfa e))
+        = DFAaccepting (regex2dfa (derivative_list bs e)).
+    Proof.
+      intros. rewrite <- accepts_str_lst.
+      generalize dependent e.
+      induction bs; intros; auto.
+      - destruct (regex2dfa e) eqn:E. destruct p.
+        apply transition_Table_correct in E. destruct E. destruct H0. destruct H0. subst.
+        rewrite accepts_deriv; auto. 2: { intros. apply accepts_matchb. auto. }
+        assert(
+          DFAaccepts bs (derivative a (canon e), t, fin_states x) =
+          DFAaccepts bs (regex2dfa (derivative a (canon e)))).
+        { apply exact_table_moot. auto. }
+        rewrite H0. clear H0 H x t.
+        rewrite IHbs. 
+        assert(
+            DFAaccepting (regex2dfa (derivative_list bs (derivative a (canon e)))) =
+            DFAaccepting (regex2dfa (derivative_list (a :: bs) (canon e)))).
+        { auto. }
+        rewrite H. clear H. simpl. repeat dm.
+        + clear E0. apply find_some in E. destruct E.
+          apply In_fin_nullable in H. apply regex_eq_correct in H0.
+          rewrite <- H0 in H. clear H0 IHbs.
+          symmetry in H. rewrite nullable_bridge in *.
+          assert(L := canon_equiv (derivative_list bs (derivative a (canon e))) []).
+          apply L in H. clear L.
+          assert(L := canon_equiv (derivative_list bs (derivative a e)) []).
+          apply L. clear L.
+          rewrite <- derivative_list_cons in *. rewrite derivative_list_str in *.
+          apply canon_equiv. auto.
+        + clear E. apply find_some in E0. destruct E0.
+          apply In_fin_nullable in H. apply regex_eq_correct in H0.
+          rewrite <- H0 in H. clear H0.
+          symmetry. symmetry in H. rewrite nullable_bridge in *.
+          assert(L := canon_equiv (derivative_list bs (derivative a (canon e))) []).
+          apply L. clear L.
+          assert(L := canon_equiv (derivative_list bs (derivative a e)) []).
+          apply L in H. clear L.
+          rewrite <- derivative_list_cons in *. rewrite derivative_list_str in *.
+          apply canon_equiv. auto.
+        + clear E E0 IHbs.
+          destruct (nullable (canon (derivative_list bs (derivative a e)))) eqn:E.
+          * symmetry. symmetry in E. rewrite nullable_bridge in *.
+            assert(L := canon_equiv (derivative_list bs (derivative a (canon e))) []).
+            apply L. clear L.
+            assert(L := canon_equiv (derivative_list bs (derivative a e)) []).
+            apply L in E. clear L.
+            rewrite <- derivative_list_cons in *. rewrite derivative_list_str in *.
+            apply canon_equiv. auto.
+          * rewrite false_not_true in *. intros C. destruct E.
+            symmetry. symmetry in C. rewrite nullable_bridge in *.
+            assert(L := canon_equiv (derivative_list bs (derivative a (canon e))) []).
+            apply L in C. clear L.
+            assert(L := canon_equiv (derivative_list bs (derivative a e)) []).
+            apply L. clear L.
+            rewrite <- derivative_list_cons in *. rewrite derivative_list_str in *.
+            apply canon_equiv. auto.
+    Qed.
 
   End Correct.
 

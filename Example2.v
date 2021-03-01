@@ -63,6 +63,10 @@ Module Export ST <: state.T.
     Definition defState := defDFA.
     
     Definition transition (a : Sigma) (e : State) : State := DFAtransition a e.
+    Definition transition_list := DFAtransition_list.
+
+
+    
     Definition accepts (z : String) (e : State) : bool := DFAaccepts z e.
     Definition accepting := DFAaccepting.
 
@@ -86,6 +90,13 @@ Module Export ST <: state.T.
       split; intros.
       - symmetry in H. apply r2d_accepts_match. auto.
       - symmetry. apply r2d_accepts_match. auto.
+    Qed.
+
+    Definition accepting_dt_list : forall bs e,
+        accepting (transition_list bs (init_state e))
+        = accepting (init_state (derivative_list bs e)).
+    Proof.
+      intros. apply DFAaccepting_dt_list.
     Qed.
     
   End Ty.
