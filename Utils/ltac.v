@@ -37,3 +37,7 @@ Ltac ltb_lt_all :=
   match goal with
   | H:context [ (_ <? _) = _ ] |- _ => try(rewrite false_not_true in H); rewrite Nat.ltb_lt in H
   end.
+
+Ltac tc := try congruence.
+
+Ltac sis := simpl in *.

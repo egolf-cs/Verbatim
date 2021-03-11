@@ -1,5 +1,4 @@
 open Instance
-open ST.R.Ty
 open L.Lex
 
 let to_string chars =
@@ -61,8 +60,9 @@ match n with
 | _ -> x :: (n_copies (n-1) x)
 
 let srus = map init_srule rus
-let lex_pre = lex' srus
-let () = Printf.printf "%.5f" (time (map init_srule) rus)
+let lex_pre = lex'__M (init_Memos srus) srus
+(* let lex_pre = lex' srus *)
+let () = Printf.printf "%.5f\n" (time (map init_srule) rus)
 
 let evaluate fname =
   let code = to_chars (read_whole_file ("data/"^fname)) in

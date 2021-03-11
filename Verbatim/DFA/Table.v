@@ -5,13 +5,13 @@ Require Import Coq.omega.Omega.
 
 
 From Verbatim Require Import ltac.
-From Verbatim Require Import Utils.order.
 From Verbatim Require Import regex.
 
 Module Type TABLE (R : regex.T).
 
   Import R.Ty.
-  Import R.Defs.
+  Module Import DS := R.Defs.
+  Module Import reFS := DS.reFS.
 
   Parameter Table : Type.
   Parameter emptyTable : Table.
@@ -28,12 +28,19 @@ Module Type TABLE (R : regex.T).
 
 
   Parameter add_state : Table -> regex -> Table.
-  Parameter get_states : Table -> list regex.
-  Parameter empty_states : get_states emptyTable = [].
+  Parameter get_states : Table -> t.
+  Parameter empty_states : get_states emptyTable = empty.
   Parameter correct_states : forall T r, In r (get_states (add_state T r)).
   Parameter moot_add_state : forall T e a r,
       get_Table T e a = get_Table (add_state T r) e a.
   (* might need a hypothesis about not being in states *)
+
+  
+  Parameter get_eq : Table -> regex -> option regex.
+
+  Parameter get_eq_correct : forall T e e',
+      get_eq T e = Some e' -> In e' (get_states T) /\ regex_eq e e' = true.
+
 
 End TABLE.
 
@@ -43,79 +50,9 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
   Import R.Defs.
   Import R.Ty.
 
-  Module Export Get_Sim.
-    (*
-    Fixpoint get_sim' (es : list regex) (e : regex) : option regex :=
-      match es with
-      | [] => None
-      | h :: t => if re_sim e h then Some h else get_sim' t e
-      end.
-
-    Theorem get_sim'_correct : forall es e e',
-        get_sim' es e = Some e' -> In e' es /\ re_sim e e' = true.
-    Proof.
-      induction es; intros; try(discriminate).
-      simpl in H. dm.
-      - injection H; intros. rewrite H0 in *. split; simpl; auto.
-      - apply IHes in H. destruct H. split; simpl; auto.
-    Qed.
-    
-    Definition get_sim (T : Table) (e : regex) : option regex :=
-      get_sim' (get_states T) e.
-    
-    Theorem get_sim_correct : forall T e e',
-        get_sim T e = Some e' -> In e' (get_states T) /\ re_sim e e' = true.
-    Proof.
-      intros. unfold get_sim in *. apply get_sim'_correct; auto.
-    Qed.*)
-
-    (* If the regexes are ordered this can be faster *)
-    Fixpoint get_eq' (es : list regex) (e : regex) : option regex :=
-      match es with
-      | [] => None
-      | h :: t => if regex_eq e h then Some h else get_eq' t e
-      end.
-
-    Definition get_eq (T : Table) (e : regex) : option regex :=
-      get_eq' (get_states T) e.
-
-    Lemma get_eq_correct : forall T e e',
-        get_eq T e = Some e' -> In e' (get_states T) /\ regex_eq e e' = true.
-    Admitted.
-
-  End Get_Sim.
-
   Module Export FillTable.
 
     Import R.Defs.Helpers.
-
-    Fixpoint re_order (e1 e2 : regex) : order :=
-      match e1, e2 with
-      | EmptyStr, EmptyStr => EQUAL
-      | EmptyStr, _ => LESSER
-      | _, EmptyStr => GREATER
-      | EmptySet, EmptySet => EQUAL
-      | EmptySet, _ => LESSER
-      | _, EmptySet => GREATER
-      | Char a, Char b => Sigma_order a b
-      | Char _, _ => LESSER
-      | _, Char _ => GREATER
-      | App e1 e2, App e3 e4 =>
-        match re_order e1 e3 with
-        | EQUAL => re_order e2 e4
-        | comp => comp
-        end
-      | App _ _, _ => LESSER
-      | _, App _ _ => GREATER
-      | Star e1, Star e2 => re_order e1 e2
-      | Star _, _ => LESSER
-      | _, Star _ => GREATER
-      | Union e1 e2, Union e3 e4 =>
-        match re_order e1 e3 with
-        | EQUAL => re_order e2 e4
-        | comp => comp
-        end
-      end.
 
     (* Assume all union inputs are already canonical:
        1. All iterared unions are recursively right associated
@@ -136,10 +73,10 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
       | [], _ => es2
       | _, [] => es1
       | h1 :: t1, h2 :: t2 =>
-        match re_order h1 h2 with
-        | EQUAL => merge (h1 :: t1) t2
-        | LESSER => h1 :: (merge t1 (es2))
-        | GREATER => h2 :: (merge es1 t2)
+        match re_compare h1 h2 with
+        | Eq => merge (h1 :: t1) t2
+        | Lt => h1 :: (merge t1 (es2))
+        | Gt => h2 :: (merge es1 t2)
         end
       end.
     Next Obligation.
@@ -148,7 +85,85 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
     Next Obligation.
       simpl. omega.
     Defined.
-      
+
+    Lemma MNil : forall z,
+        not (exp_match z EmptySet).
+    Proof.
+      intros. intros C. inv C.
+    Qed.
+
+    Lemma merge_nil1 : forall es,
+        merge [] es = es.
+    Proof. auto. Qed.
+
+    Lemma merge_nil2 : forall es,
+        merge es [] = es.
+    Proof. destruct es; auto. Qed.
+
+    Lemma merge_cons : forall es0 es1 e0 e1,
+        match re_compare e0 e1 with
+        | Eq => merge (e0 :: es0) (e1 :: es1) = merge (e0 :: es0) es1
+        | Lt => merge (e0 :: es0) (e1 :: es1) = e0 :: (merge es0 (e1 :: es1))
+        | Gt => merge (e0 :: es0) (e1 :: es1) = e1 :: merge (e0 :: es0) es1
+        end.
+    Admitted.
+
+    Lemma merge_In_cons : forall es' es a e,
+        In e (merge (a :: es) es')
+        <-> In e (a :: (merge es es')).
+    Proof.
+      induction es'; destruct es; intros.
+      {
+        split; intros; sis; auto.
+      }
+      {
+        split; intros; auto.
+      }
+      {
+        split; intros.
+        - sis. assert(L := merge_cons [] es' a0 a). destruct (re_compare a0 a).
+          + rewrite L in H. apply IHes' in H. rewrite merge_nil1 in H. destruct H; auto.
+          + rewrite L in H. rewrite merge_nil1 in H. simpl in H. auto.
+          + rewrite L in H. simpl in H. destruct H; auto.
+            apply IHes' in H. rewrite merge_nil1 in H. destruct H; auto.
+        - sis. assert(L := merge_cons [] es' a0 a). destruct (re_compare a0 a) eqn:E.
+          + apply re_compare_eq in E. subst. rewrite L. apply IHes'. destruct H; auto.
+          + rewrite L. rewrite merge_nil1. simpl. auto.
+          + rewrite L. simpl. rewrite IHes'. destruct H; auto. destruct H; auto.
+      }
+      {
+        split; intros.
+        -
+
+    Admitted.
+    
+    
+
+    Lemma merge_In : forall es es' e,
+        In e (merge es es') <-> (In e es \/ In e es').
+    Proof.
+      intros. split; intros.
+      {
+        generalize dependent es'. generalize dependent e.
+        induction es; intros.
+        - rewrite merge_nil1 in H. auto.
+        - apply merge_In_cons in H. destruct H.
+          + subst. repeat left. auto.
+          + apply IHes in H. destruct H.
+            * left. right. auto.
+            * auto.
+      }
+      {
+        generalize dependent es'. generalize dependent e.
+        induction es; intros.
+        - rewrite merge_nil1. destruct H; auto. contradiction.
+        - apply merge_In_cons. destruct H.
+          + destruct H.
+            * simpl. auto.
+            * right. apply IHes. left. auto.
+          + right. apply IHes. right. auto.
+      } 
+    Qed.
 
     (* Assume all App inputs and subterms are recursively right associated *)
     Fixpoint mkIterApp' (e : regex) : list regex :=
@@ -188,15 +203,381 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
         end
       | Star EmptySet => EmptyStr
       | Star EmptyStr => EmptyStr
-      | Star (Star r) => canon r
+      | Star r =>
+        match canon r with
+        | Star _ => r
+        | r' => Star r'
+        end
       | _ => e
       end.
 
+
+    Lemma invertIterApp : forall e z,
+        exp_match z (IterApp (mkIterApp' e)) <-> exp_match z e.
+    Proof.
+      induction e; try(sis; reflexivity).
+      sis. dm; try(destruct e2; discriminate).
+      rewrite <- E in *. clear E.
+      split; intros.
+      - inv H. apply IHe2 in H4. constructor; auto.
+      - inv H. constructor; auto. apply IHe2. auto.
+    Qed.
+
+    Lemma consIterApp : forall es e z,
+        exp_match z (IterApp (e :: es))
+        <-> exp_match z (App e (IterApp es)).
+    Proof.
+      intros. simpl. destruct es.
+      {
+        split; intros.
+        - sis. assert(z = z ++ []). symmetry. apply app_nil_r.
+          rewrite H0. clear H0.
+          constructor; auto; constructor.
+        - inv H. inv H4. rewrite app_nil_r. auto.
+      }
+      {
+        split; intros; auto.
+      }
+    Qed.
+
+    Lemma bar : forall es es' z,
+        exp_match z (IterApp (es ++ es'))
+        <-> exp_match z (App (IterApp es) (IterApp es')).
+    Proof.
+      induction es; intros.
+      {
+        split; intros; sis; assert(z = [] ++ z); auto.
+        - rewrite H0. constructor; auto; constructor.
+        - inv H. inv H4. sis. auto.
+      }
+      {
+        split; intros.
+        - rewrite <- app_comm_cons in H. apply consIterApp in H. inv H.
+          apply IHes in H4. inv H4. rewrite app_assoc. constructor; auto.
+          apply consIterApp. constructor; auto.
+        - remember (a :: es) as es0. inversion H. rewrite Heqes0 in *. clear H1 H2 H0 re1 re2.
+          apply consIterApp in H3. inv H3.
+          rewrite <- app_comm_cons. rewrite consIterApp. rewrite <- app_assoc.
+          constructor; auto. apply IHes. constructor; auto.
+      }
+    Qed.
+        
+    Lemma foo : forall es z e',
+        exp_match z (IterApp (es ++ [e']))
+        <-> exp_match z (App (IterApp es) e').
+    Proof. intros. apply bar. Qed.
+    
+    
+    Lemma invertIterUnion : forall e z,
+        exp_match z (IterUnion (mkIterUnion' e)) <-> exp_match z e.
+    Proof.
+      induction e; try(sis; reflexivity).
+      sis. dm; try(destruct e2; discriminate).
+      rewrite <- E in *. clear E.
+      split; intros.
+      - inv H.
+        + apply MUnionL. auto.
+        + apply IHe2 in H1. apply MUnionR. auto.
+      - inv H.
+        + constructor; auto.
+        + apply MUnionR. apply IHe2. auto.
+    Qed.
+    
+    Lemma consIterUnion : forall es e z,
+        exp_match z (IterUnion (e :: es))
+        <-> exp_match z (Union e (IterUnion es)).
+    Proof.
+      intros; simpl; destruct es.
+      - simpl. split; intros.
+        + constructor. auto.
+        + inv H; auto. inv H1.
+      - split; auto.
+    Qed.
+
+    Lemma IterUnion_In_match : forall es z,
+      exp_match z (IterUnion es)
+      <-> (exists e, In e es /\ exp_match z e).
+    Proof.
+      induction es; intros.
+      {
+        split; intros.
+        - simpl in H. inv H.
+        - destruct H. destruct H. contradiction.
+      }
+      {
+        split; intros.
+        - apply consIterUnion in H. inv H.
+          + exists a. split; auto. simpl. left. auto.
+          + apply IHes in H1. destruct H1. destruct H. exists x. split.
+            * simpl. right. auto.
+            * auto.
+        - apply consIterUnion. destruct H. destruct H. destruct (regex_eq a x) eqn:E.
+          + apply regex_eq_correct in E. subst. constructor. auto.
+          + destruct H.
+            * apply false_not_true in E. destruct E. apply regex_eq_correct. auto.
+            * apply MUnionR. apply IHes. eexists; eauto.
+      }
+    Qed.
+    
+
+    Lemma eq_set_eq_U : forall es es',
+        (forall e, In e es <-> In e es')
+        -> re_equiv (IterUnion es) (IterUnion es').
+    Proof.
+      unfold re_equiv. intros. split; intros.
+      - rewrite IterUnion_In_match in *. destruct H0. destruct H0.
+        apply H in H0. eexists; eauto.
+      - rewrite IterUnion_In_match in *. destruct H0. destruct H0.
+        apply H in H0. eexists; eauto.
+    Qed.
+         
+    Lemma remove_head : forall es es' z a,
+      exp_match z (IterUnion (merge (a :: es) es'))
+      <-> exp_match z (IterUnion (a :: (merge es es'))).
+    Proof.
+      intros. assert(L := eq_set_eq_U). unfold re_equiv in *. apply L. clear L.
+      intros. split; intros.
+      - sis. rewrite merge_In in *. sis. rewrite <- or_assoc. auto.
+      - sis. rewrite merge_In in *. sis. rewrite or_assoc. auto.
+    Qed.
+      
+    Lemma barU : forall es es' z,
+        exp_match z (IterUnion (merge es es'))
+        <-> exp_match z (IterUnion (es ++ es')).
+    Proof.
+      induction es; intros.
+      {
+        assert([] ++ es' = es').
+        { auto. }
+        split; intros.
+        - rewrite H in *; destruct es'; auto.
+        - rewrite H in *; destruct es'; auto.
+      }
+      {
+        split; intros.
+        - rewrite <- app_comm_cons. rewrite consIterUnion. apply remove_head in H.
+          rewrite consIterUnion in H. inv H.
+          + constructor; auto.
+          + apply MUnionR. apply IHes. auto.
+        - rewrite <- app_comm_cons in *. rewrite consIterUnion in *. apply remove_head.
+          rewrite consIterUnion. inv H.
+          + constructor. auto.
+          + apply MUnionR. apply IHes. auto.
+      }
+    Qed.
+
+    Lemma barU' : forall es es' z,
+        exp_match z (IterUnion (es ++ es'))
+        <-> exp_match z (Union (IterUnion es) (IterUnion es')).
+    Proof.
+      induction es; intros.
+      {
+        split; intros; sis.
+        - apply MUnionR. auto.
+        - inv H; auto. inv H2.
+      }
+      {
+        split; intros.
+        - rewrite <- app_comm_cons in H. apply consIterUnion in H. inv H.
+          + apply MUnionL. apply consIterUnion. apply MUnionL. auto.
+          + apply IHes in H1. inv H1.
+            * apply MUnionL. apply consIterUnion. apply MUnionR. auto.
+            * apply MUnionR. auto.
+        - rewrite <- app_comm_cons. apply consIterUnion. remember (a :: es) as es0.
+          inv H.
+          + apply consIterUnion in H2. inv H2.
+            * apply MUnionL. auto.
+            * apply MUnionR. apply IHes. apply MUnionL. auto.
+          + apply MUnionR. apply IHes. apply MUnionR. auto.
+      }
+    Qed.
+    
+    Lemma fooU : forall es z e',
+        exp_match z (IterUnion (es ++ [e']))
+        <-> exp_match z (Union (IterUnion es) e').
+    Proof. intros. apply barU'. Qed.
+
+    Lemma canon_Star : forall z e,
+        (forall z : String, exp_match z (canon e) <-> exp_match z e)
+        ->
+        (exp_match z (canon (Star e))
+         <-> exp_match z (Star (canon e))).
+    Proof.
+      (*
+      split; intros.
+      - simpl in *. dm.
+        + inv H0. constructor.
+        + inv H0. constructor.
+        + apply star_concat in H0. destruct H0 as (xss & H0). destruct H0.
+          rewrite H0. apply concat_star. intros. apply H1 in H2. apply H. auto.
+        + apply star_concat in H0. destruct H0 as (xss & H0). destruct H0.
+          rewrite H0. apply concat_star. intros. apply H1 in H2. apply H. auto.
+        (* + apply star_concat in H0. destruct H0 as (xss & H0). destruct H0.
+          rewrite H0. apply concat_star. intros. apply H1 in H2. apply H. auto.*)
+        + assert(exp_match z (canon (Star r))).
+          {
+            admit.
+          }
+          apply H in H1.
+          apply star_concat in H1. destruct H1 as (xss & H1). destruct H1.
+          rewrite H1. apply concat_star. intros. apply H2 in H3. apply H.
+          assert(xs ++ [] = xs).
+          { apply app_nil_r. }
+          rewrite <- H4. constructor; auto. constructor.
+      - simpl in *. dm.
+        + unfold canon in H0. inv H0. constructor. inv H2.
+        + unfold canon in H0. admit.
+        + apply star_concat in H0. destruct H0 as (xss & H0). destruct H0.
+          rewrite H0. apply concat_star. intros. apply H1 in H2. apply H. auto.
+        + apply star_concat in H0. destruct H0 as (xss & H0). destruct H0.
+          rewrite H0. apply concat_star. intros. apply H1 in H2. apply H. auto.
+        + *)
+    Admitted.
+          
     Lemma canon_equiv : forall e,
         re_equiv (canon e) e.
     Proof.
-    Admitted.
-    
+      induction e; unfold re_equiv in *; split; intros; try(sis; auto; discriminate).
+      - simpl in H.
+        repeat dm; try(inv H; reflexivity);
+          assert(z = [] ++ z); assert(z = z ++ []);
+            try(auto; reflexivity); try(rewrite app_nil_r; auto);
+              try(rewrite H0; constructor; [apply IHe1; constructor|];
+                  apply IHe2; auto; reflexivity);
+              try(rewrite H1; constructor; [apply IHe1; auto|];
+                  apply IHe2; constructor; reflexivity); clear H0 H1;
+                try(inv H; constructor; [apply IHe1; auto|]; apply IHe2; auto; reflexivity);
+                try(destruct r2; discriminate);
+                try(destruct r4; discriminate);
+                try(destruct r0_2; discriminate);
+                try(rewrite <- E1 in H; inv H; rewrite foo in H4; inv H4;
+                    rewrite invertIterApp in H0; rewrite app_assoc; constructor;
+                    [apply IHe1; constructor; auto | apply IHe2; auto]).
+        + rewrite <- E1 in H. inv H. constructor; [apply IHe1; auto|].
+          inv H4. apply IHe2. constructor; auto. rewrite invertIterApp in H5. auto.
+        + rewrite <- E1 in H. inv H. rewrite bar in H4. inv H4. dm.
+          * rewrite invertIterApp in H0. rewrite app_assoc. constructor.
+            -- apply IHe1. constructor; auto.
+            -- destruct r4; try(discriminate).
+          * rewrite <- E2 in H5. inv H5. rewrite invertIterApp in *. rewrite app_assoc.
+            constructor; [apply IHe1|apply IHe2]; constructor; auto.
+        + rewrite <- E1 in H. inv H. inv H4. rewrite invertIterApp in *.
+          constructor; [apply IHe1; auto|]. apply IHe2. constructor; auto.
+        + rewrite <- E1 in H. inv H. inv H4. rewrite invertIterApp in *.
+          constructor; [apply IHe1; auto|]. apply IHe2. constructor; auto.
+          
+      - simpl.
+        repeat dm; try(inv H; reflexivity);
+          assert(z = [] ++ z); assert(z = z ++ []);
+            try(auto; reflexivity); try(rewrite app_nil_r; auto);
+              try(rewrite H0 in H; inv H; rewrite <- IHe1 in *; inv H5; reflexivity);
+              try(rewrite H1 in H; inv H; rewrite <- IHe2 in *; inv H6; reflexivity);
+              try(inv H; rewrite <- IHe1 in *; rewrite <- IHe2 in *;
+                  constructor; auto; reflexivity);
+              try(inv H; rewrite <- IHe1 in *; rewrite <- IHe2 in *;
+                  inv H5; inv H6; simpl; constructor; auto; reflexivity);
+              try(destruct r2; discriminate);
+              try(rewrite <- E1; inv H; rewrite <- IHe1 in *; rewrite <- IHe2 in *;
+                  inv H5; inv H6; repeat constructor; auto; rewrite invertIterApp; auto);
+              try(inv H; rewrite <- IHe1 in *; rewrite <- IHe2 in *;
+                  inv H5; inv H6; repeat rewrite app_nil_r; repeat constructor; auto; reflexivity);
+              try(rewrite <- E1; inv H; rewrite <- IHe1 in *; rewrite <- IHe2 in *;
+                  inv H5; rewrite <- app_assoc; constructor; auto;
+                  rewrite bar; constructor; [rewrite invertIterApp|]; auto);
+              try(destruct r4; discriminate);
+              try(destruct r0_2; discriminate).
+        + simpl. dm; try(destruct r4; discriminate).
+          inv H6. constructor; auto. rewrite <-  E2. apply invertIterApp. auto.
+          
+      - simpl in H.
+        repeat dm; repeat dm; try(inv H; reflexivity);
+          try(apply MUnionR; rewrite <- IHe2; auto; reflexivity);
+          try(apply MUnionL; rewrite <- IHe1; auto; reflexivity);
+          try(inv H; [apply MUnionL; rewrite <- IHe1; auto
+                     |apply MUnionR; rewrite <- IHe2; auto]; reflexivity);
+          try(inv H; [apply MUnionR; rewrite <- IHe2; auto
+                     |apply MUnionL; rewrite <- IHe1; auto]; reflexivity);
+          try(rewrite barU in H; simpl in H; dm; try(destruct r2; discriminate);
+              rewrite <- E1 in H; inv H; [apply MUnionL; rewrite <- IHe1; auto|];
+              apply MUnionR; rewrite <- IHe2; inv H1; [apply MUnionL; auto|];
+              apply MUnionR; rewrite invertIterUnion in *; auto);
+          try(rewrite barU in H; simpl in H; inv H;
+              [apply MUnionL; rewrite <- IHe1; auto
+              |apply MUnionR; rewrite <- IHe2; auto]; reflexivity).
+        + rewrite barU in H; simpl in H; inv H;
+              [apply MUnionL; rewrite <- IHe1; auto
+              |apply MUnionR; rewrite <- IHe2; auto].
+          dm; try(destruct r4; discriminate).
+          rewrite <- E1 in *. inv H1; [apply MUnionL; auto|rewrite invertIterUnion in H0].
+          apply MUnionR; auto.
+        + rewrite barU in H. rewrite fooU in H. inv H;
+              [apply MUnionL; rewrite <- IHe1; auto
+              |apply MUnionR; rewrite <- IHe2; auto].
+          dm; [destruct r2; discriminate|]. rewrite <- E1 in H2.
+          inv H2. apply MUnionL. auto.
+          apply MUnionR. rewrite invertIterUnion in H1. auto.
+        + rewrite barU in H. rewrite fooU in H. inv H;
+              [apply MUnionL; rewrite <- IHe1; auto
+              |apply MUnionR; rewrite <- IHe2; auto].
+          dm; [destruct r2; discriminate|]. rewrite <- E1 in H2.
+          inv H2. apply MUnionL. auto.
+          apply MUnionR. rewrite invertIterUnion in H1. auto.
+        + rewrite barU in H. rewrite fooU in H. inv H;
+              [apply MUnionL; rewrite <- IHe1; auto
+              |apply MUnionR; rewrite <- IHe2; auto].
+          dm; [destruct r2; discriminate|]. rewrite <- E1 in H2.
+          inv H2. apply MUnionL. auto.
+          apply MUnionR. rewrite invertIterUnion in H1. auto.
+        + rewrite barU in H. rewrite barU' in H.
+          inv H; dm; try(destruct r2; destruct r4; discriminate).
+          * apply MUnionL. rewrite <- IHe1. rewrite <- E1 in H2. inv H2.
+            apply MUnionL; auto. rewrite invertIterUnion in *. apply MUnionR. auto.
+          * apply MUnionR. rewrite <- IHe2. rewrite <- E1 in H1. inv H1.
+            apply MUnionL; auto. rewrite invertIterUnion in *. apply MUnionR. auto.
+        + rewrite barU in H. rewrite barU' in H.
+          inv H; [dm|]; try(destruct r2; discriminate).
+          * apply MUnionL. rewrite <- IHe1. rewrite <- E1 in H2. inv H2.
+            apply MUnionL. auto. apply MUnionR. rewrite invertIterUnion in *. auto.
+          * apply MUnionR. rewrite <- IHe2. auto.
+        + rewrite barU in H. rewrite barU' in H. inv H.
+          * rewrite IHe1 in *. apply MUnionL. auto.
+          * dm; try(destruct r0_2; discriminate). rewrite <- E1 in *.
+            apply MUnionR. apply IHe2. inv H1.
+            -- apply MUnionL. auto.
+            -- apply MUnionR. rewrite invertIterUnion in *. auto.
+      - simpl.
+        repeat dm; try(inv H; reflexivity);
+          try(rewrite barU; simpl);
+          try(inv H; [rewrite <- IHe1 in *; inv H2 | rewrite <- IHe2 in *; auto]; reflexivity);
+          try(inv H; [rewrite <- IHe1 in *; auto | rewrite <- IHe2 in *; inv H1]; reflexivity);
+          try(inv H; [rewrite <- IHe1 in *; auto | rewrite <- IHe2 in *; auto]; reflexivity);
+          try(inv H; [rewrite <- IHe1 in *; apply MUnionL; auto
+                     | rewrite <- IHe2 in *; apply MUnionR; auto]; reflexivity);
+          try(inv H; [rewrite <- IHe1 in *; apply MUnionR; auto
+                     | rewrite <- IHe2 in *; apply MUnionL; auto]; reflexivity);
+          dm; try(destruct r4; discriminate); try(destruct r2; discriminate);
+            try(destruct r0_2; discriminate); try(rewrite <- E1; clear E1);
+              try(inv H; [rewrite <- IHe1 in * | rewrite <- IHe2 in *]);
+              try(apply MUnionL; auto; reflexivity);
+              try(inv H1);
+              try(apply MUnionL; auto; reflexivity);
+              try(apply MUnionR; apply MUnionL; auto; reflexivity);
+              try(apply MUnionR; apply MUnionR; rewrite invertIterUnion; auto; reflexivity);
+              try(inv H2; [apply MUnionL; auto; reflexivity|];
+                  apply MUnionR; apply barU'; apply MUnionL; apply invertIterUnion; auto);
+              try(apply MUnionR; apply barU'; apply MUnionR; simpl; constructor); auto.
+        + apply MUnionR. apply barU'. apply MUnionR. simpl.
+          dm; try(discriminate). apply MUnionL. auto.
+        + apply MUnionR. apply barU'. apply MUnionR. simpl.
+          dm; try(destruct r4; discriminate). apply MUnionR. rewrite <- E1.
+          apply invertIterUnion. auto.
+      - rewrite canon_Star in H; auto. apply star_concat in H.
+        destruct H as (xss & H). destruct H.
+        rewrite H in *. apply concat_star. intros. apply IHe. apply H0. auto.
+      - apply canon_Star; auto. apply star_concat in H. destruct H as (xss & H). destruct H.
+        rewrite H in *. apply concat_star. intros. apply IHe. apply H0. auto.
+    Qed.                                                                                        
+        
     Fixpoint fill_Table_all' (T : Table) (e : regex) (bs : list Sigma) (fuel : nat) : Table :=
       match fuel with
       | 0 => T
@@ -213,22 +594,6 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
             let
               (* now we'll do it with respect to c *)
               d := canon (derivative c e) in
-            (** 
-                get_sim is probably very expensive.
-                The list of states doesn't have any logical order to it right now.
-                Given a regex, there is only a small class of regexes that could be similar.
-                Should somehow bucket the list of states by these classes.
-             **)
-            (**
-               One of the paper talks about canonicalizing regexes with smart constructors.
-               I'm not sure if this is necessary for the DFA construction.
-               I can imagine how it would make similarity checks faster/bucketing easier.
-             **)
-            (**
-               Right now states are regexes. It would be better if they were integers.
-               Would need to keep track of the association between integers and regexes.
-               Maybe that should be handled by the table?
-            **)
             match get_eq T d with
             | None =>
               let
@@ -334,15 +699,7 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
         -> derived (set_Table T e b r).
     Proof.
       intros.
-      (* 1. T' is derived before the set. 
-     2. We know (derivative b e) and r are similar.
-     3. The only entry in T' that changes is the (e, b) entry
-     ---
-     4. T' is still derived after the set.
-       *)
       unfold derived. intros.
-      (* If e = e0 and a = b, r = r0. Otherwise the entry was there before the set. *)
-      (** may need a hypothesis about getting something that wasn't set **)
       destruct (regex_eq e e0) eqn:E; destruct (Sigma_dec a b).
       - apply regex_eq_correct in E. subst.
         rewrite correct_Table in H1. injection H1; intros; subst.

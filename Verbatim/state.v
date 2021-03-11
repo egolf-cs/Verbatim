@@ -1,8 +1,11 @@
 Require Import List.
 Import ListNotations.
 
+Require Import FSets FSets.FMapAVL FSets.FMapFacts.
+
 From Verbatim Require Import ltac.
 From Verbatim Require Import regex.
+From Verbatim Require Import Orders.
 
 
 Module Type STATE (Import R : regex.T).
@@ -46,6 +49,32 @@ Module DefsFn (R : regex.T) (Ty : STATE R).
   Import Ty.
   Import R.Defs.
   Import R.Ty.
+
+  Module Export comparable.
+
+    Definition stt_compare (s1 s2 : State) : comparison :=
+      re_compare (init_state_inv s1) (init_state_inv s2).
+
+    Lemma stt_compare_eq : forall x y,
+        stt_compare x y = Eq <-> x = y.
+    Admitted.
+
+    Lemma stt_compare_trans : forall c x y z,
+        stt_compare x y = c -> stt_compare y z = c -> stt_compare x z = c.
+    Admitted.
+
+    Lemma stt_eq_dec : forall (x y : State), {x = y} + {x <> y}.
+    Admitted.
+
+  End comparable.
+    
+
+  Module State_as_UCT <: UsualComparableType.
+    Definition t := State.
+    Definition compare := stt_compare.
+    Definition compare_eq := stt_compare_eq.
+    Definition compare_trans := stt_compare_trans.
+  End State_as_UCT.
   
   Module Export Coredefs.
     

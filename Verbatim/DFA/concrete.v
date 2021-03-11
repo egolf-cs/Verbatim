@@ -12,7 +12,6 @@ Module naiveTable (R : regex.T) <: TABLE R.
 
   Definition SigmaMap : Type := list (Sigma * regex).
 
-
   Fixpoint setSigmaMap (M : SigmaMap) (a : Sigma) (e : regex) : SigmaMap :=
     match M with
     | [] => [(a,e)]

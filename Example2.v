@@ -65,8 +65,6 @@ Module Export ST <: state.T.
     
     Definition transition (a : Sigma) (e : State) : State := DFAtransition a e.
     Definition transition_list := DFAtransition_list.
-
-
     
     Definition accepts (z : String) (e : State) : bool := DFAaccepts z e.
     Definition accepting := DFAaccepting.

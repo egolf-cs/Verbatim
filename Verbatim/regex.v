@@ -3,21 +3,45 @@ Import ListNotations.
 Require Import Nat.
 Require Import Coq.Program.Wf.
 Require Import Coq.omega.Omega.
+Require Import FSets FSets.FMapAVL FSets.FMapFacts.
 
 From Verbatim Require Import ltac.
-From Verbatim Require Import order.
+From Verbatim Require Import Orders.
 
 Module Type SIGMA.
   Parameter Sigma : Type.
   Parameter SigmaEnum : list Sigma.
-  Parameter Sigma_order : Sigma -> Sigma -> order.
   Parameter Sigma_finite : forall a, In a SigmaEnum.
   Parameter Sigma_dec : forall(a a' : Sigma), {a = a'} + {a <> a'}.
+  
+  Parameter compareT : Sigma -> Sigma -> comparison.
+  Parameter compareT_eq : forall x y : Sigma,
+      compareT x y = Eq <-> x = y.
+
+  Parameter compareT_trans : forall c x y z,
+      compareT x y = c -> compareT y z = c -> compareT x z = c.
+
 End SIGMA.
 
 Module DefsFn (Ty : SIGMA).
 
   Import Ty.
+
+  Module T_as_UCT <: UsualComparableType.
+    Definition t             := Sigma.
+    Definition compare       := compareT.
+    Definition compare_eq    := compareT_eq.
+    Definition compare_trans := compareT_trans.
+  End T_as_UCT.
+
+  Module T_as_UOT <: UsualOrderedType := UOT_from_UCT T_as_UCT.
+
+  Module SigFS := FSetAVL.Make T_as_UOT.
+  Module SigFSF := FSetFacts.Facts SigFS.
+
+  Module SigFM := FMapAVL.Make T_as_UOT.
+  Module SigFMF := FMapFacts.Facts SigFM.
+  
 
   Module Export Strings.
 
@@ -142,12 +166,6 @@ Module DefsFn (Ty : SIGMA).
         - simpl. apply Bool.andb_true_iff. split; auto.
       Qed.
 
-
-
-
-
-
-
       Fixpoint nullable' (r : regex) : bool:=
         match r with
         | EmptySet => false
@@ -188,8 +206,124 @@ Module DefsFn (Ty : SIGMA).
         | [] => e
         | c :: cs => derivative_list cs (derivative c e)
         end.
-      
+
+      Fixpoint re_compare (e1 e2 : regex) : comparison :=
+      match e1, e2 with
+      | EmptyStr, EmptyStr => Eq
+      | EmptyStr, _ => Lt
+      | _, EmptyStr => Gt
+      | EmptySet, EmptySet => Eq
+      | EmptySet, _ => Lt
+      | _, EmptySet => Gt
+      | Char a, Char b => compareT a b
+      | Char _, _ => Lt
+      | _, Char _ => Gt
+      | App e1 e2, App e3 e4 =>
+        match re_compare e1 e3 with
+        | Eq => re_compare e2 e4
+        | comp => comp
+        end
+      | App _ _, _ => Lt
+      | _, App _ _ => Gt
+      | Star e1, Star e2 => re_compare e1 e2
+      | Star _, _ => Lt
+      | _, Star _ => Gt
+      | Union e1 e2, Union e3 e4 =>
+        match re_compare e1 e3 with
+        | Eq => re_compare e2 e4
+        | comp => comp
+        end
+      end.
+
+      Lemma re_compare_eq : forall x y : regex, re_compare x y = Eq <-> x = y.
+      Proof.
+        induction x; destruct y; split;
+          try(reflexivity);
+          try(simpl; intros; discriminate).
+        - simpl. intros. apply compareT_eq in H. subst. auto.
+        - simpl. intros. injection H; intros; subst. apply compareT_eq. auto.
+        - intros. specialize (IHx1 y1). specialize (IHx2 y2). simpl in H.
+          destruct (re_compare x1 y1) eqn:E; try(discriminate).
+          destruct IHx1. destruct H0. auto. destruct (re_compare x2 y2); try(discriminate).
+          destruct IHx2. destruct H0; auto.
+        - intros. injection H. intros; subst. simpl.
+          destruct (regex_eq y1 y1) eqn:E.
+          + apply regex_eq_correct in E. apply IHx1 in E. rewrite E.
+            destruct (regex_eq y2 y2) eqn:E1.
+            * apply regex_eq_correct in E1. apply IHx2 in E1. auto.
+            * apply false_not_true in E1. destruct E1. apply regex_eq_correct. auto.
+          + apply false_not_true in E. destruct E. apply regex_eq_correct. auto.
+        - intros. specialize (IHx1 y1). specialize (IHx2 y2). simpl in H.
+          destruct (re_compare x1 y1) eqn:E; try(discriminate).
+          destruct IHx1. destruct H0. auto. destruct (re_compare x2 y2); try(discriminate).
+          destruct IHx2. destruct H0; auto.
+        - intros. injection H. intros; subst. simpl.
+          destruct (regex_eq y1 y1) eqn:E.
+          + apply regex_eq_correct in E. apply IHx1 in E. rewrite E.
+            destruct (regex_eq y2 y2) eqn:E1.
+            * apply regex_eq_correct in E1. apply IHx2 in E1. auto.
+            * apply false_not_true in E1. destruct E1. apply regex_eq_correct. auto.
+          + apply false_not_true in E. destruct E. apply regex_eq_correct. auto.
+        - intros. specialize (IHx y). simpl in H. apply IHx in H. subst. auto.
+        - intros. injection H. intros. subst. simpl. apply IHx. auto.
+      Qed.
+
+      Lemma re_compare_eq' : forall x,
+          re_compare x x = Eq.
+      Proof.
+        intros. apply re_compare_eq. auto.
+      Qed.
+
+      Lemma re_compare_trans : forall c x y z,
+          re_compare x y = c -> re_compare y z = c -> re_compare x z = c.
+      Proof.
+        induction x; destruct y; destruct z; intros; auto;
+          try(simpl in *; subst; discriminate).
+        - simpl in *. eapply compareT_trans; eauto.
+        - simpl in *.
+          destruct(re_compare x1 y1) eqn:E; destruct(re_compare x2 y2) eqn:E0;
+            destruct(re_compare y1 z1) eqn:E1; destruct(re_compare y2 z2) eqn:E2;
+              try(rewrite re_compare_eq in *; subst; repeat rewrite re_compare_eq' in *; auto);
+              try(discriminate);
+              try(specialize (IHx2 y2 z2); apply IHx2; auto);
+              try(rewrite E0; rewrite E1; auto);
+              try(rewrite E1; auto);
+              try(rewrite E; auto);
+              try(specialize (IHx1 y1 z1); rewrite IHx1; [reflexivity|auto|auto]);
+              try(subst; specialize (IHx1 y1 z1); specialize (IHx2 y2 z2);
+                  rewrite IHx1; [reflexivity|auto|auto]); try(discriminate).
+        - simpl in *.
+          destruct(re_compare x1 y1) eqn:E; destruct(re_compare x2 y2) eqn:E0;
+            destruct(re_compare y1 z1) eqn:E1; destruct(re_compare y2 z2) eqn:E2;
+              try(rewrite re_compare_eq in *; subst; repeat rewrite re_compare_eq' in *; auto);
+              try(discriminate);
+              try(specialize (IHx2 y2 z2); apply IHx2; auto);
+              try(rewrite E0; rewrite E1; auto);
+              try(rewrite E1; auto);
+              try(rewrite E; auto);
+              try(specialize (IHx1 y1 z1); rewrite IHx1; [reflexivity|auto|auto]);
+              try(subst; specialize (IHx1 y1 z1); specialize (IHx2 y2 z2);
+                  rewrite IHx1; [reflexivity|auto|auto]); try(discriminate).
+        - simpl in *. eapply IHx; eauto.
+      Qed.
+          
     End Regexes.
+
+    Module regex_as_UCT <: UsualComparableType.
+      Definition t := regex.
+      Definition compare := re_compare.
+      Definition compare_eq := re_compare_eq.
+      Definition compare_trans := re_compare_trans.
+    End regex_as_UCT.
+      
+
+    Module regex_as_UOT <: UsualOrderedType := UOT_from_UCT regex_as_UCT.
+
+    Module reFS := FSetAVL.Make regex_as_UOT.
+    Module reFSF := FSetFacts.Facts reFS.
+
+    Module reFM := FMapAVL.Make regex_as_UOT.
+    Module reFMF := FMapFacts.Facts reFM.
 
     Module Export MatchSpec.
 
@@ -436,6 +570,8 @@ Module DefsFn (Ty : SIGMA).
 
     End Notations.
 
+    
+
     Module Helpers.
       
       Definition Plus (r : regex) : regex := App r (Star r).
@@ -460,236 +596,7 @@ Module DefsFn (Ty : SIGMA).
       Definition REString (z : String) := IterApp (map Char z).
 
     End Helpers.
-
-    (*
-    Module Export Similarity.
-
-      Module Export Spec.
-
-        Inductive re_sim_prop : regex -> regex ->  Prop
-          :=
-            u_self1 (r : regex) : re_sim_prop (Union r r) r
-          | u_self2 (r : regex) : re_sim_prop r (Union r r)
-          | u_comm1 (r s : regex) : re_sim_prop (Union r s) (Union s r)
-          | u_comm2 (r s : regex) : re_sim_prop (Union s r) (Union r s)
-          | u_assoc1 (r s t : regex) :
-              re_sim_prop (Union (Union r s) t) (Union r (Union s t))
-          | u_assoc2 (r s t : regex) :
-              re_sim_prop (Union r (Union s t)) (Union (Union r s) t)
-          | a_assoc1 (r s t : regex) :
-              re_sim_prop (App (App r s) t) (App r (App s t))
-          | a_assoc2 (r s t : regex) :
-              re_sim_prop (App r (App s t)) (App (App r s) t)
-          | sim_refl (r : regex) : re_sim_prop r r.
-
-      End Spec.
-
-      Module Export Impl.
-
-        Import Notations.
-
-        Definition re_sim (e1 e2 : regex) : bool :=
-          (e1 = e2)                                       (* sim refl *)
-          || match e1, e2 with
-            | (r1 # s1) # (t1 # u1), (r2 # s2) # (t2 # u2) =>
-              (  (e1 = (r2 # s2)) && (e1 = (t2 # u2))  ) (* self union *)
-              || (  (e2 = (r1 # s1)) && (e2 = (t1 # u1))  ) (* self union *)
-              || (  ((r1 # s1) = (t2 # u2)) && ((t1 # u1) = (r2 # s2))  ) (* union commutes *)
-              (** treat (r1 # s1) as r1 and (t2 # u2) as t2, as in case 2 **)
-              || (  ((r1 # s1) = r2) && (t1 = s2) && (u1 = (t2 # u2))  ) (* union assoc *)
-              (** treat (r2 # s2) as r2 and (t1 # u1) as t1, as in case 3 **)
-              || (  (r1 = (r2 # s2)) && (s1 = t2) && ((t1 # u1) = u2)  ) (* union assoc *)
-            (* * case 2 * *)
-            | r1 # (s1 # t1), (r2 # s2) # t2 =>
-              (  (e1 = (r2 # s2)) && (e1 = t2)  )          (* self union *)
-              || (  (e2 = r1) && (e2 = (s1 # t1))  )        (* self union *)
-              || (  (r1 = t2) && ((s1 # t1) = (r2 # s2))  ) (* union commutes *)
-              || (  (r1 = r2) && (s1 = s2) && (t1 = t2)  )  (* union assoc *)
-            (* * case 3 * *)
-            | (r1 # s1) # t1, r2 # (s2 # t2) =>
-              (  (e1 = r2) && (e1 = (s2 # t2))  )          (* self union *)
-              || (  (e2 = (r1 # s1)) && (e2 = t1)  )        (* self union *)
-              || (  ((r1 # s1) = (s2 # t2)) && (t1 = r2)  ) (* union commutes *)
-              || (  (r1 = r2) && (s1 = s2) && (t1 = t2)  )  (* union assoc *)
-            | r1 # s1, s2 # r2 =>
-              (  (e1 = r2) && (e1 = s2)  )                 (* self union *)
-              || (  (e2 = r1) && (e2 = s1)  )                (* self union *)
-              || (  (r1 = r2) && (s1 = s2)  )                (* union commutes *)
-            | r0 # r1, _ =>
-              (  (e2 = r0) && (e2 = r1)  )                  (* self union *)
-            | _, r0 # r1 =>
-              (  (e1 = r0) && (e1 = r1)  )                  (* self union *)
-            | (r1 @ s1) @ (t1 @ u1), (r2 @ s2) @ (t2 @ u2) =>
-              (  ((r1 @ s1) = r2) && (t1 = s2) && (u1 = (t2 @ u2))  )
-              || (  (r1 = (r2 @ s2)) && (s1 = t2) && ((t1 @ u1) = u2)  )
-            | r1 @ (s1 @ t1), (r2 @ s2) @ t2 =>
-              (  (r1 = r2) && (s1 = s2) && (t1 = t2)  )     (* assoc commutes *)                           
-            | (r1 @ s1) @ t1, r2 @ (s2 @ t2) => 
-              (  (r1 = r2) && (s1 = s2) && (t1 = t2)  )     (* assoc commutes *)   
-            | _, _ => false
-            end.
-
-      End Impl.
-
-      Module Lemmas.
-
-        Theorem re_sim_correctF : forall e1 e2,
-          re_sim e1 e2 = true -> re_sim_prop e1 e2.
-        Proof.
-          intros.
-          unfold re_sim in H.
-          repeat dm; try(discriminate);
-            repeat(first [rewrite Bool.orb_true_iff in *; destruct H
-                         | rewrite Bool.andb_true_iff in *; destruct H]);
-            try(discriminate);
-            try(rewrite <- regex_eq_correct in *; discriminate);
-            try(rewrite <- regex_eq_correct in *; subst; constructor);
-            try(rewrite <- regex_eq_correct in *; rewrite H; constructor);
-            try(rewrite <- regex_eq_correct in *; rewrite H0; constructor);
-            try(rewrite <- regex_eq_correct in *; rewrite H; rewrite H0; constructor);
-            try(rewrite <- regex_eq_correct in *; rewrite <- H; rewrite <- H0; constructor).
-        Qed.
-  
-        Theorem re_sim_correctB : forall e1 e2,
-            re_sim_prop e1 e2 -> re_sim e1 e2 = true.
-        Proof.
-          intros.
-                  inv H; try(eapply re_sim_correctB_trans; eauto; reflexivity);
-            unfold re_sim;
-            try(rewrite Bool.orb_true_iff; left; rewrite <- regex_eq_correct; reflexivity);
-            repeat dm; try(discriminate);
-              repeat(first [rewrite Bool.orb_true_iff | rewrite Bool.andb_true_iff]);
-              repeat(rewrite <- regex_eq_correct); repeat rewrite regex_eq_refl;
-                try(right; right; right; right; right; split; reflexivity);
-                try(right; left; right; right; right; split; reflexivity);
-                try(left; right; right; right; right; split; reflexivity);
-                try(left; left; right; right; right; split; reflexivity);
-                try(right; right; right; right; left; split; reflexivity);
-                try(right; left; right; right; left; split; reflexivity);
-                try(left; right; right; right; left; split; reflexivity);
-                try(left; left; right; right; left; split; reflexivity);
-                try(right; right; right; left; right; split; reflexivity);
-                try(right; left; right; left; right; split; reflexivity);
-                try(left; right; right; left; right; split; reflexivity);
-                try(left; left; right; left; right; split; reflexivity);
-                try(right; right; right; left; left; split; reflexivity);
-                try(right; left; right; left; left; split; reflexivity);
-                try(left; right; right; left; left; split; reflexivity);
-                try(left; left; right; left; left; split; reflexivity);
-                try(right; right; left; right; right; split; reflexivity);
-                try(right; left; left; right; right; split; reflexivity);
-                try(left; right; left; right; right; split; reflexivity);
-                try(left; left; left; right; right; split; reflexivity);
-                try(right; right; left; right; left; split; reflexivity);
-                try(right; left; left; right; left; split; reflexivity);
-                try(left; right; left; right; left; split; reflexivity);
-                try(left; left; left; right; left; split; reflexivity);
-                try(right; right; left; left; right; split; reflexivity);
-                try(right; left; left; left; right; split; reflexivity);
-                try(left; right; left; left; right; split; reflexivity);
-                try(left; left; left; left; right; split; reflexivity);
-                try(right; right; left; left; left; split; reflexivity);
-                try(right; left; left; left; left; split; reflexivity);
-                try(left; right; left; left; left; split; reflexivity);
-                try(left; left; left; left; left; split; reflexivity);
-                try(right; left; left; left; right; split; reflexivity);
-                try(right; right; right; right; split; reflexivity);
-                try(right; right; right; left; split; reflexivity);
-                try(right; right; left; right; split; reflexivity);
-                try(right; right; left; left; split; reflexivity);
-                try(right; left; right; right; split; reflexivity);
-                try(right; left; right; left; split; reflexivity);
-                try(right; left; left; right; split; reflexivity);
-                try(right; left; left; left; split; reflexivity);
-                try(left; right; right; right; split; reflexivity);
-                try(left; right; right; left; split; reflexivity);
-                try(left; right; left; right; split; reflexivity);
-                try(left; right; left; left; split; reflexivity);
-                try(left; left; right; right; split; reflexivity);
-                try(left; left; right; left; split; reflexivity);
-                try(left; left; left; right; split; reflexivity);
-                try(left; left; left; left; split; reflexivity);
-                try(right; right; right; split; reflexivity);
-                try(right; right; left; split; reflexivity);
-                try(right; left; right; split; auto; reflexivity);
-                try(right; left; left; split; reflexivity);
-                try(left; right; right; split; reflexivity);
-                try(left; right; left; split; reflexivity);
-                try(left; left; right; split; reflexivity);
-                try(left; left; left; split; reflexivity);
-                try(right; right; split; reflexivity);
-                try(right; right; split; auto; reflexivity);
-                try(right; left; split; auto; reflexivity);
-                try(left; right; split; reflexivity);
-                try(left; left; split; reflexivity);
-                try(left; split; reflexivity);
-                try(right; split; auto; reflexivity).
-        Qed.
-
-      End Lemmas.
-
-      Module Export Correct.
-
-        Import Lemmas.
-
-        Theorem re_sim_correct : forall e1 e2,
-            re_sim e1 e2 = true <-> re_sim_prop e1 e2.
-        Proof.
-          intros; split; [apply re_sim_correctF | apply re_sim_correctB].
-        Qed.
-
-        Lemma re_sim_refl : forall e, re_sim e e = true.
-        Proof.
-          intros. rewrite re_sim_correct. constructor.
-        Qed.
-
-        Theorem re_sim_symm : forall e1 e2, re_sim e1 e2 = re_sim e2 e1.
-        Proof.
-          intros. destruct (re_sim e1 e2) eqn:E; symmetry.
-          - rewrite re_sim_correct in *. inv E; constructor.
-          - rewrite false_not_true in *. intros C. destruct E.
-            rewrite re_sim_correct in *. inv C; constructor.
-        Qed.
-        
-        Theorem re_sim_equiv : forall e1 e2,
-            re_sim e1 e2 = true -> re_equiv e1 e2.
-        Proof.
-          intros. apply re_sim_correct in H.
-          inv H;
-            try(unfold re_equiv; intros; split; intros;
-                inv H; auto; repeat(constructor); auto; reflexivity);
-            unfold re_equiv; intros; split; intros.
-          - inv H.
-            + inv H2.
-              * apply MUnionL. auto.
-              * apply MUnionR. apply MUnionL. auto.
-            + apply MUnionR. apply MUnionR. auto.
-          - inv H.
-            + apply MUnionL. apply MUnionL. auto.
-            + inv H1.
-              * apply MUnionL. apply MUnionR. auto.
-              * apply MUnionR. auto.
-          - inv H.
-            + apply MUnionL. apply MUnionL. auto.
-            + inv H1.
-              * apply MUnionL. apply MUnionR. auto.
-              * apply MUnionR. auto.
-          - inv H.
-            + inv H2.
-              * apply MUnionL. auto.
-              * apply MUnionR. apply MUnionL. auto.
-            + apply MUnionR. apply MUnionR. auto.
-          - inv H. inv H3. rewrite <- app_assoc. repeat(constructor); auto.
-          - inv H. inv H4. rewrite app_assoc. repeat(constructor); auto.
-          - inv H. inv H4. rewrite app_assoc. repeat(constructor); auto.
-          - inv H. inv H3. rewrite <- app_assoc. repeat(constructor); auto.
-        Qed.
-
-      End Correct.
-
-    End Similarity.
-    *)
-
+    
 End DefsFn.
 
 
