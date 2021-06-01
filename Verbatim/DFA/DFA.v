@@ -23,7 +23,8 @@ Module DFAFn (TabT : Table.T).
       | Char a => [a]
       | Union e1 e2 | App e1 e2 => nodup Sigma_dec ((char_set e1) ++ (char_set e2))
       | Star e1 => char_set e1
-      end. *)
+      end.
+     *)
 
     Fixpoint regex_depth (e : regex) : nat := 
       match e with
@@ -120,7 +121,9 @@ Module DFAFn (TabT : Table.T).
 
     Theorem DFAaccepting_nullable : forall es T e,
         DFAaccepting (e, T, fin_states es) = nullable e.
-    Admitted.
+    Proof.
+      intros. unfold DFAaccepting. dm.
+      Admitted.
     (*
     Proof.
       intros. unfold DFAaccepting. repeat dm.

@@ -339,6 +339,7 @@ Module ImplFn (Import MEM : memo.T).
         - simpl in H0. destruct (get_Memo M (transition a stt) code) eqn:E.
           + repeat dm; repeat inj_all; auto. clear IHcode.
             unfold lexy. intros.
+            (*
             destruct (stt_eq_dec stt0 stt).
             * destruct (String_dec z (a::code)).
               -- subst. rewrite correct_Memo in H0. inv H0.
@@ -359,7 +360,8 @@ Module ImplFn (Import MEM : memo.T).
                  specialize (L m stt0 stt z (a::code) None). rewrite L in H0; auto.
             * assert(L := correct_Memo_moot).
               specialize (L m stt0 stt z (a::code) None). rewrite L in H0; auto.
-      Qed.
+      Qed.*)
+      Admitted.
 
       Lemma lexy_list_closure : 
         forall code rules Ms l0 Ms',

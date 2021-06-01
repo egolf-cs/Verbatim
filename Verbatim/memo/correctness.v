@@ -121,25 +121,92 @@ Module CorrectFn (Import MEM : memo.T).
 
   End CaseLemmas.
 
-  Theorem lex'_memo_eq : forall rus code ts rest ts' rest' Ms,
-    lex' (map init_srule rus) code (lt_wf (length code)) = (ts, rest)
-    -> lex'__M (init_Memos (map init_srule rus)) (map init_srule rus) code
-         (lt_wf (length code)) (init_Memos_lexy (map init_srule rus))
-         (init_Memos_parallel (map init_srule rus)) = (Ms, ts', rest')
+  Lemma momprefs_memo_F : forall code rus l o Ms' l' o',
+      max_of_prefs (max_prefs code rus) = (l, o)
+      -> max_of_prefs__M (max_prefs__M (init_Memos rus) code rus) = (Ms', l', o')
+      -> (l, o) = (l', o').
+  Admitted.
+
+  Lemma lex'_memo_eq_ts : forall code (Ha : Acc lt (length code))
+                           ts rus rest ts' rest' Ms Hlexy Hlen,
+    lex' rus code Ha = (ts, rest)
+    -> lex'__M (init_Memos rus) rus code
+         Ha Hlexy Hlen = (Ms, ts', rest')
+    -> ts = ts'.
+  Proof.
+    intros. apply lex'_cases in H. apply lex'_cases__M in H0.
+    destruct ts; destruct ts'; auto.
+    - exfalso. destruct t. destruct H0 as (Ms'' & Ms' & h & y & suffix & Heq' & H0).
+      destruct H. destruct H1.
+      + clear H0.
+        destruct (max_of_prefs (max_prefs code rus)) eqn:E. simpl in H1. rewrite H1 in *. clear H1.
+        apply momprefs_memo_F with (l := l0) (o := None) in Heq'; auto.
+        discriminate.
+      + clear H0.
+        destruct (max_of_prefs (max_prefs code rus)) eqn:E. simpl in H1.
+        destruct H1. rewrite H0 in *. clear H0.
+        apply momprefs_memo_F with (l := l0) (o := Some ([], x)) in Heq'; auto.
+        discriminate.
+    - exfalso. destruct t. destruct H as (h & t & suffix & Heq' & H).
+      destruct H. destruct H0. destruct H2.
+      + destruct (max_of_prefs__M (max_prefs__M (init_Memos rus) code rus)) eqn:E.
+        simpl in H2. rewrite H2 in *. clear H2.
+        destruct p0.
+        apply momprefs_memo_F with (l := l) (o := Some (h :: t, suffix)) in E; auto.
+        discriminate.
+      + destruct (max_of_prefs__M (max_prefs__M (init_Memos rus) code rus)) eqn:E.
+        destruct H2.
+        simpl in H2. rewrite H2 in *. clear H2.
+        destruct p0.
+        apply momprefs_memo_F with (l := l) (o := Some (h :: t, suffix)) in E; auto.
+        discriminate.
+    - destruct t. destruct t0.
+      destruct H as (h & t & suffix & Heq & Hlex' & Hp).
+      destruct H0 as (Ms'' & Ms' & h0 & t0 & suffix0 & Heq0 & Hlex'0 & Hp0).
+      subst.
+      clear Hlex'0. (** <--- watch out for this **)
+      apply momprefs_memo_F with (l := l) (o := Some (h :: t, suffix)) in Heq0; auto.
+      injection Heq0. intros. subst.
+      (** either need induction or need Hlex'0; pretty close though  **)
+      admit.
+  Admitted.
+  
+  Lemma lex'_memo_eq_rest : forall code (Ha : Acc lt (length code))
+                           ts rus rest ts' rest' Ms Hlexy Hlen,
+    lex' rus code Ha = (ts, rest)
+    -> lex'__M (init_Memos rus) rus code
+         Ha Hlexy Hlen = (Ms, ts', rest')
+    -> rest = rest'.
+    (** this will probably be similar to eq_ts above **)
+  Admitted.
+
+  Theorem lex'_memo_eq : forall code (Ha : Acc lt (length code))
+                           ts rus rest ts' rest' Ms Hlexy Hlen,
+    lex' rus code Ha = (ts, rest)
+    -> lex'__M (init_Memos rus) rus code
+         Ha Hlexy Hlen = (Ms, ts', rest')
     -> (ts, rest) = (ts', rest').
   Proof.
-  Admitted.
+    intros.
+    assert(ts = ts').
+    { apply lex'_memo_eq_ts with (ts := ts) (rest := rest) in H0; auto. }
+    assert(rest = rest').
+    { apply lex'_memo_eq_rest with (ts := ts) (rest := rest) in H0; auto. }
+    subst. auto.
+  Qed.
+    
 
   Theorem lex_memo_eq : forall rus code,
       lex__M rus code = lex rus code.
   Proof.
     intros. destruct (lex rus code) eqn:E.
     unfold lex__M. unfold lex in E.
-    destruct (lex'__M (init_Memos (map Lex.init_srule rus)) (map Lex.init_srule rus) code
-                    (lt_wf (length code)) (init_Memos_lexy (map Lex.init_srule rus))
-                    (init_Memos_parallel (map Lex.init_srule rus))) eqn:E1.
+    destruct (lex'__M (init_Memos (map CorrectFn.IMPL.Lex.init_srule rus))
+       (map CorrectFn.IMPL.Lex.init_srule rus) code (lt_wf (length code))
+       (init_Memos_lexy (map CorrectFn.IMPL.Lex.init_srule rus))
+       (init_Memos_parallel (map CorrectFn.IMPL.Lex.init_srule rus))) eqn:E1.
     destruct p.
-    eapply lex'_memo_eq in E1; eauto.
+    apply lex'_memo_eq with (ts := l) (rest := s) in E1; auto.
   Qed.
 
   Theorem lex_sound__M : forall ts code rest rus,

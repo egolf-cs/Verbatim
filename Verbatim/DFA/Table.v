@@ -75,8 +75,8 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
       | h1 :: t1, h2 :: t2 =>
         match re_compare h1 h2 with
         | Eq => merge (h1 :: t1) t2
-        | Lt => h1 :: (merge t1 (es2))
-        | Gt => h2 :: (merge es1 t2)
+        | Lt => h1 :: (merge t1 (h2 :: t2))
+        | Gt => h2 :: (merge (h1 :: t1) t2)
         end
       end.
     Next Obligation.
@@ -85,7 +85,7 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
     Next Obligation.
       simpl. omega.
     Defined.
-
+    
     Lemma MNil : forall z,
         not (exp_match z EmptySet).
     Proof.
@@ -100,44 +100,20 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
         merge es [] = es.
     Proof. destruct es; auto. Qed.
 
-    Lemma merge_cons : forall es0 es1 e0 e1,
-        match re_compare e0 e1 with
-        | Eq => merge (e0 :: es0) (e1 :: es1) = merge (e0 :: es0) es1
-        | Lt => merge (e0 :: es0) (e1 :: es1) = e0 :: (merge es0 (e1 :: es1))
-        | Gt => merge (e0 :: es0) (e1 :: es1) = e1 :: merge (e0 :: es0) es1
+   
+    Lemma merge_cons : forall t1 t2 h1 h2,
+        match re_compare h1 h2 with
+        | Eq => merge (h1 :: t1) (h2 :: t2) = merge (h1 :: t1) t2
+        | Lt => merge (h1 :: t1) (h2 :: t2) = h1 :: (merge t1 (h2 :: t2))
+        | Gt => merge (h1 :: t1) (h2 :: t2) =  h2 :: (merge (h1 :: t1) t2)
         end.
-    Admitted.
-
-    Lemma merge_In_cons : forall es' es a e,
-        In e (merge (a :: es) es')
-        <-> In e (a :: (merge es es')).
     Proof.
-      induction es'; destruct es; intros.
-      {
-        split; intros; sis; auto.
-      }
-      {
-        split; intros; auto.
-      }
-      {
-        split; intros.
-        - sis. assert(L := merge_cons [] es' a0 a). destruct (re_compare a0 a).
-          + rewrite L in H. apply IHes' in H. rewrite merge_nil1 in H. destruct H; auto.
-          + rewrite L in H. rewrite merge_nil1 in H. simpl in H. auto.
-          + rewrite L in H. simpl in H. destruct H; auto.
-            apply IHes' in H. rewrite merge_nil1 in H. destruct H; auto.
-        - sis. assert(L := merge_cons [] es' a0 a). destruct (re_compare a0 a) eqn:E.
-          + apply re_compare_eq in E. subst. rewrite L. apply IHes'. destruct H; auto.
-          + rewrite L. rewrite merge_nil1. simpl. auto.
-          + rewrite L. simpl. rewrite IHes'. destruct H; auto. destruct H; auto.
-      }
-      {
-        split; intros.
-        -
-
+      intros. dm.
+      - unfold merge. unfold merge_func. rewrite fix_sub_eq.
+        + simpl. rewrite E. auto.
+        + intros. destruct x. 
     Admitted.
-    
-    
+
 
     Lemma merge_In : forall es es' e,
         In e (merge es es') <-> (In e es \/ In e es').
@@ -147,21 +123,25 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
         generalize dependent es'. generalize dependent e.
         induction es; intros.
         - rewrite merge_nil1 in H. auto.
-        - apply merge_In_cons in H. destruct H.
-          + subst. repeat left. auto.
-          + apply IHes in H. destruct H.
-            * left. right. auto.
-            * auto.
+        - induction es'; sis; auto.
+          assert(L := merge_cons es es' a a0). destruct (re_compare a a0).
+          + rewrite L in H. apply IHes' in H. destruct H; auto.
+          + rewrite L in H. simpl in H. destruct H; auto.
+            apply IHes in H. destruct H; auto.
+          + rewrite L in H. simpl in H. destruct H; auto.
+            apply IHes' in H. destruct H; auto.
       }
       {
         generalize dependent es'. generalize dependent e.
         induction es; intros.
         - rewrite merge_nil1. destruct H; auto. contradiction.
-        - apply merge_In_cons. destruct H.
-          + destruct H.
-            * simpl. auto.
-            * right. apply IHes. left. auto.
-          + right. apply IHes. right. auto.
+        - induction es'; sis.
+          + destruct H; auto. contradiction.
+          + assert(L := merge_cons es es' a a0). destruct (re_compare a a0) eqn:E.
+            * rewrite L. apply IHes'. destruct H; auto. destruct H; auto.
+              left. left. apply re_compare_eq in E. rewrite E. auto.
+            * rewrite L. simpl. destruct H; auto. destruct H; auto.
+            * rewrite L. simpl. destruct H; auto. destruct H; auto.
       } 
     Qed.
 
@@ -626,7 +606,7 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
 
     Definition derived (T : Table) : Prop :=
       forall e a r, get_Table T e a = Some r -> re_equiv r (derivative a e).
-
+    
   End Spec.
 
   Module Export Correct.

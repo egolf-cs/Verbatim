@@ -50,6 +50,7 @@ Module DefsFn (R : regex.T) (Ty : STATE R).
   Import R.Defs.
   Import R.Ty.
 
+  
   Module Export comparable.
 
     Definition stt_compare (s1 s2 : State) : comparison :=
@@ -63,8 +64,9 @@ Module DefsFn (R : regex.T) (Ty : STATE R).
         stt_compare x y = c -> stt_compare y z = c -> stt_compare x z = c.
     Admitted.
 
+    (*
     Lemma stt_eq_dec : forall (x y : State), {x = y} + {x <> y}.
-    Admitted.
+    Admitted.*)
 
   End comparable.
     
