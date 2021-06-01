@@ -67,6 +67,7 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
       | _ => [e]
       end.
 
+    (* automation *)
     Program Fixpoint merge (es1 es2 : list regex)
             { measure ((length es1) + (length es2)) } : list regex :=
       match es1, es2 with
@@ -79,12 +80,73 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
         | Gt => h2 :: (merge (h1 :: t1) t2)
         end
       end.
-    Next Obligation.
+    Next Obligation. 
       simpl. omega.
     Defined.
     Next Obligation.
       simpl. omega.
     Defined.
+
+    (* issues unfolding things *)
+    Lemma merge_cons : forall t1 t2 h1 h2,
+        match re_compare h1 h2 with
+        | Eq => merge (h1 :: t1) (h2 :: t2) = merge (h1 :: t1) t2
+        | Lt => merge (h1 :: t1) (h2 :: t2) = h1 :: (merge t1 (h2 :: t2))
+        | Gt => merge (h1 :: t1) (h2 :: t2) =  h2 :: (merge (h1 :: t1) t2)
+        end.
+    Proof.
+      intros. dm.
+      - unfold merge. unfold merge_func. rewrite fix_sub_eq.
+        + simpl. rewrite E. auto.
+        + intros. destruct x. 
+    Admitted.
+
+
+
+    (* acc proof method, issues type checking *)
+    Lemma merge_acc1 :
+      forall es1 es2 t1 t2 (h1 h2 : regex),
+        Acc lt (length es1 + length es2)
+        -> (es1, es2) = (h1 :: t1, h2 :: t2)
+        -> Acc lt ((length (h1 :: t1)) + (length t2)).
+    Proof.
+      intros. inv H0. inv H. apply H0. simpl. omega.
+    Qed.
+
+
+    Lemma merge_acc2 :
+      forall es1 es2 t1 t2 (h1 h2 : regex),
+        Acc lt (length es1 + length es2)
+        -> (es1, es2) = (h1 :: t1, h2 :: t2)
+        -> Acc lt ((length t1) + (length (h2 :: t2))).
+    Proof. 
+      intros. inv H0. inv H. auto.
+    Qed.
+
+
+    Lemma merge_acc3 :
+      forall es1 es2 t1 t2 (h1 h2 : regex),
+        Acc lt (length es1 + length es2)
+        -> (es1, es2) = (h1 :: t1, h2 :: t2)
+        -> Acc lt ((length (h1 :: t1)) + (length t2)).
+    Proof.
+      apply merge_acc1.
+    Qed.
+
+    Fixpoint merge' (es1 es2 : list regex)
+            (Ha : Acc lt ((length es1) + (length es2)))
+            {struct Ha} : list regex :=
+      match (es1, es2) as tpl return (es1, es2) = tpl -> _ with
+      | ([], _) => fun _ => es2
+      | (_, []) => fun _ => es1
+      | (h1 :: t1, h2 :: t2) =>
+        fun Heq =>
+        match re_compare h1 h2 with
+        | Eq => merge' (h1 :: t1) t2 (merge_acc1 _ _ _ _ _ _ Ha Heq)
+        | Lt => h1 :: (merge' t1 (h2 :: t2) (merge_acc2 _ _ _ _ _ _ Ha Heq))
+        | Gt => h2 :: (merge' (h1 :: t1) t2 (merge_acc3 _ _ _ _ _ _ Ha Heq))
+        end
+      end eq_refl.
     
     Lemma MNil : forall z,
         not (exp_match z EmptySet).
@@ -99,20 +161,6 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
     Lemma merge_nil2 : forall es,
         merge es [] = es.
     Proof. destruct es; auto. Qed.
-
-   
-    Lemma merge_cons : forall t1 t2 h1 h2,
-        match re_compare h1 h2 with
-        | Eq => merge (h1 :: t1) (h2 :: t2) = merge (h1 :: t1) t2
-        | Lt => merge (h1 :: t1) (h2 :: t2) = h1 :: (merge t1 (h2 :: t2))
-        | Gt => merge (h1 :: t1) (h2 :: t2) =  h2 :: (merge (h1 :: t1) t2)
-        end.
-    Proof.
-      intros. dm.
-      - unfold merge. unfold merge_func. rewrite fix_sub_eq.
-        + simpl. rewrite E. auto.
-        + intros. destruct x. 
-    Admitted.
 
 
     Lemma merge_In : forall es es' e,
