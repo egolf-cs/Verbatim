@@ -119,6 +119,13 @@ Module DFAFn (TabT : Table.T).
         + auto.
     Qed. *)
 
+    Lemma compat_bool_nullable :
+      SetoidList.compat_bool eq nullable.
+    Proof.
+      unfold SetoidList.compat_bool. unfold Morphisms.Proper. unfold Morphisms.respectful.
+      intros. rewrite H. auto.
+    Qed.
+
     Theorem DFAaccepting_nullable : forall T e,
         DFAaccepting (e, T, fin_states (get_states T)) = nullable e.
     Proof.
@@ -126,11 +133,11 @@ Module DFAFn (TabT : Table.T).
       unfold fin_states. destruct (reFS.mem e (reFS.filter nullable (get_states T))) eqn:E1.
       - rewrite reFSF.filter_b in E1.
         + symmetry in E1. apply Bool.andb_true_eq in E1. destruct E1. auto.
-        + admit.
+        + apply compat_bool_nullable.
       - rewrite reFSF.filter_b in E1.
         + inv E1. rewrite E. auto.
-        + admit.
-    Admitted.
+        + apply compat_bool_nullable.
+    Qed.
 
     Theorem transition_Table_correct : forall e e' T es,
         regex2dfa e = (e', T, es)
@@ -236,9 +243,11 @@ Module DFAFn (TabT : Table.T).
     Qed.
 
     Lemma DFAaccepts_dt : forall bs a e,
-        DFAaccepts bs (regex2dfa (derivative a e)) = DFAaccepts bs (DFAtransition a (regex2dfa e)).
+        DFAaccepts bs (regex2dfa (derivative a e))
+        = DFAaccepts bs (DFAtransition a (regex2dfa e)).
     Proof.
-      intros. rewrite <- accepts_cons. destruct (DFAaccepts bs (regex2dfa (derivative a e))) eqn:E.
+      intros. rewrite <- accepts_cons.
+      destruct (DFAaccepts bs (regex2dfa (derivative a e))) eqn:E.
       - symmetry. rewrite r2d_accepts_match in *. apply der_match. auto.
       - symmetry. rewrite false_not_true in *. intros C. destruct E.
         rewrite r2d_accepts_match in *. apply der_match. auto.
