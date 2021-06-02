@@ -134,7 +134,8 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
     Proof.
       apply merge_acc1.
     Qed.
-
+    
+    (*
     Fixpoint merge' (es1 es2 : list regex)
             (Ha : Acc lt ((length es1) + (length es2)))
             {struct Ha} : list regex :=
@@ -148,7 +149,7 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
         | Lt => h1 :: (merge' t1 (h2 :: t2) (merge_acc2 _ _ _ _ _ _ Ha Heq))
         | Gt => h2 :: (merge' (h1 :: t1) t2 (merge_acc3 _ _ _ _ _ _ Ha Heq))
         end
-      end eq_refl.
+      end eq_refl.*)
     
     Lemma MNil : forall z,
         not (exp_match z EmptySet).
@@ -427,48 +428,18 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
         <-> exp_match z (Union (IterUnion es) e').
     Proof. intros. apply barU'. Qed.
 
-    Lemma canon_Star : forall z e,
-        (forall z : String, exp_match z (canon e) <-> exp_match z e)
-        ->
-        (exp_match z (canon (Star e))
-         <-> exp_match z (Star (canon e))).
-    Proof.
-      (*
-      split; intros.
-      - simpl in *. dm.
-        + inv H0. constructor.
-        + inv H0. constructor.
-        + apply star_concat in H0. destruct H0 as (xss & H0). destruct H0.
-          rewrite H0. apply concat_star. intros. apply H1 in H2. apply H. auto.
-        + apply star_concat in H0. destruct H0 as (xss & H0). destruct H0.
-          rewrite H0. apply concat_star. intros. apply H1 in H2. apply H. auto.
-        (* + apply star_concat in H0. destruct H0 as (xss & H0). destruct H0.
-          rewrite H0. apply concat_star. intros. apply H1 in H2. apply H. auto.*)
-        + assert(exp_match z (canon (Star r))).
-          {
-            admit.
-          }
-          apply H in H1.
-          apply star_concat in H1. destruct H1 as (xss & H1). destruct H1.
-          rewrite H1. apply concat_star. intros. apply H2 in H3. apply H.
-          assert(xs ++ [] = xs).
-          { apply app_nil_r. }
-          rewrite <- H4. constructor; auto. constructor.
-      - simpl in *. dm.
-        + unfold canon in H0. inv H0. constructor. inv H2.
-        + unfold canon in H0. admit.
-        + apply star_concat in H0. destruct H0 as (xss & H0). destruct H0.
-          rewrite H0. apply concat_star. intros. apply H1 in H2. apply H. auto.
-        + apply star_concat in H0. destruct H0 as (xss & H0). destruct H0.
-          rewrite H0. apply concat_star. intros. apply H1 in H2. apply H. auto.
-        + *)
+    Lemma canon_deriv : forall z e a,
+        exp_match (a :: z) (canon e) = exp_match z (canon (derivative a e)).
     Admitted.
-          
-    Lemma canon_equiv : forall e,
-        re_equiv (canon e) e.
+
+    Lemma canon_App_F : forall z e1 e2,
+        exp_match z (canon (App e1 e2))
+        -> (forall z : String, exp_match z (canon e1) <-> exp_match z e1)
+        -> (forall z : String, exp_match z (canon e2) <-> exp_match z e2)
+        -> exp_match z (App e1 e2).
     Proof.
-      induction e; unfold re_equiv in *; split; intros; try(sis; auto; discriminate).
-      - simpl in H.
+      intros z e1 e2 H IHe1 IHe2.
+      simpl in H.
         repeat dm; try(inv H; reflexivity);
           assert(z = [] ++ z); assert(z = z ++ []);
             try(auto; reflexivity); try(rewrite app_nil_r; auto);
@@ -495,7 +466,62 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
           constructor; [apply IHe1; auto|]. apply IHe2. constructor; auto.
         + rewrite <- E1 in H. inv H. inv H4. rewrite invertIterApp in *.
           constructor; [apply IHe1; auto|]. apply IHe2. constructor; auto.
+    Qed.
+
+    Lemma eq_Star : forall e1 e2,
+        re_equiv e1 e2
+        -> re_equiv (Star e1) (Star e2).
+    Admitted.
+
+    Lemma canon_Star : forall z e,
+        (forall z : String, exp_match z (canon e) <-> exp_match z e)
+        -> (exp_match z (canon (Star e))
+        <-> exp_match z (Star (canon e))).
+    Proof.
+      induction z.
+      {
+        intros. split; intros.
+        - constructor.
+        - simpl. repeat dm; try apply H; constructor.
+      }
+      {
+        intros. split; intros.
+        - apply der_match. simpl. rewrite canon_deriv in H0.
+          assert (derivative a (Star e) = App (derivative a e) (Star e)); auto.
+          rewrite H1 in H0. clear H1.
+          (* get rid of canon in H0 *)
+          apply canon_App_F in H0.
+          + inv H0. constructor.
+            * apply der_match in H4. apply der_match. apply H. auto.
+            * assert (L := eq_Star e (canon e)). unfold re_equiv in L.
+              symmetry in H. eapply L in H. apply H. auto.
+          + intros. rewrite <- canon_deriv. rewrite H. apply der_match.
+          + intros. rewrite IHz.
+    Admitted.
+        
+        
+    Lemma canon_Star_B : forall z e,
+        (forall z : String, exp_match z (canon e) <-> exp_match z e)
+        -> exp_match z (Star (canon e))
+        -> exp_match z (canon (Star e)).
+    Admitted.
+
+    Lemma canon_Star : forall z e,
+        (forall z : String, exp_match z (canon e) <-> exp_match z e)
+        ->
+        (exp_match z (canon (Star e))
+         <-> exp_match z (Star (canon e))).
+    Proof.
+      intros. split.
+      - apply canon_Star_F. auto.
+      - apply canon_Star_B. auto.
+    Qed.
           
+    Lemma canon_equiv : forall e,
+        re_equiv (canon e) e.
+    Proof.
+      induction e; unfold re_equiv in *; split; intros; try(sis; auto; discriminate).
+      - apply canon_App_F; auto. 
       - simpl.
         repeat dm; try(inv H; reflexivity);
           assert(z = [] ++ z); assert(z = z ++ []);
