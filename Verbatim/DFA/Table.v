@@ -234,11 +234,12 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
         end
       | Star EmptySet => EmptyStr
       | Star EmptyStr => EmptyStr
+      (*
       | Star r =>
         match canon r with
         | Star _ => r
         | r' => Star r'
-        end
+        end*)
       | _ => e
       end.
 
@@ -428,9 +429,6 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
         <-> exp_match z (Union (IterUnion es) e').
     Proof. intros. apply barU'. Qed.
 
-    Lemma canon_deriv : forall z e a,
-        exp_match (a :: z) (canon e) = exp_match z (canon (derivative a e)).
-    Admitted.
 
     Lemma canon_App_F : forall z e1 e2,
         exp_match z (canon (App e1 e2))
@@ -471,52 +469,53 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
     Lemma eq_Star : forall e1 e2,
         re_equiv e1 e2
         -> re_equiv (Star e1) (Star e2).
-    Admitted.
+    Proof.
+      intros. unfold re_equiv in *. intros. split; intros.
+      - apply star_concat in H0. destruct H0 as (xss & H1 & H0).
+        rewrite H1. clear H1. apply concat_star. intros.
+        apply H. apply H0. auto.
+      - apply star_concat in H0. destruct H0 as (xss & H1 & H0).
+        rewrite H1. clear H1. apply concat_star. intros.
+        apply H. apply H0. auto.
+    Qed.
 
     Lemma canon_Star : forall z e,
         (forall z : String, exp_match z (canon e) <-> exp_match z e)
         -> (exp_match z (canon (Star e))
         <-> exp_match z (Star (canon e))).
     Proof.
-      induction z.
-      {
-        intros. split; intros.
-        - constructor.
-        - simpl. repeat dm; try apply H; constructor.
-      }
-      {
-        intros. split; intros.
-        - apply der_match. simpl. rewrite canon_deriv in H0.
-          assert (derivative a (Star e) = App (derivative a e) (Star e)); auto.
-          rewrite H1 in H0. clear H1.
-          (* get rid of canon in H0 *)
-          apply canon_App_F in H0.
-          + inv H0. constructor.
-            * apply der_match in H4. apply der_match. apply H. auto.
-            * assert (L := eq_Star e (canon e)). unfold re_equiv in L.
-              symmetry in H. eapply L in H. apply H. auto.
-          + intros. rewrite <- canon_deriv. rewrite H. apply der_match.
-          + intros. rewrite IHz.
-    Admitted.
-        
-        
-    Lemma canon_Star_B : forall z e,
-        (forall z : String, exp_match z (canon e) <-> exp_match z e)
-        -> exp_match z (Star (canon e))
-        -> exp_match z (canon (Star e)).
-    Admitted.
-
-    Lemma canon_Star : forall z e,
-        (forall z : String, exp_match z (canon e) <-> exp_match z e)
-        ->
-        (exp_match z (canon (Star e))
-         <-> exp_match z (Star (canon e))).
-    Proof.
-      intros. split.
-      - apply canon_Star_F. auto.
-      - apply canon_Star_B. auto.
+      intros. split; intros; sis.
+      - dm.
+        + inv H0. constructor.
+        + inv H0. constructor.
+        + assert (L := eq_Star (App r1 r2) (canon (App r1 r2))).
+          unfold re_equiv in *. symmetry in H. eapply L in H. apply H. auto.
+        + assert (L := eq_Star (Union r1 r2) (canon (Union r1 r2))).
+          unfold re_equiv in *. symmetry in H. eapply L in H. apply H. auto.
+        + assert (L := eq_Star (Star r) (canon (Star r))).
+          unfold re_equiv in *. symmetry in H. eapply L in H. apply H. auto.
+      - dm.
+        + sis. inv H0; try constructor. inv H2.
+        + apply star_concat in H0. destruct H0 as (xss & H1 & H0).
+          assert(forall xs, In xs xss -> xs = []).
+          { intros. apply H0 in H2. rewrite H in H2. inv H2. auto. }
+          assert(z = []).
+          { clear H H0. induction xss.
+            - sis. auto.
+            - sis.
+              assert (a = []).
+              { apply H2. auto. }
+              subst. sis. apply IHxss; auto.
+          }
+          rewrite H3. constructor.
+        + assert (L := eq_Star (App r1 r2) (canon (App r1 r2))). unfold re_equiv in *.
+          symmetry in H. eapply L in H. apply H. auto.
+        + assert (L := eq_Star (Union r1 r2) (canon (Union r1 r2))). unfold re_equiv in *.
+          symmetry in H. eapply L in H. apply H. auto.
+        + assert (L := eq_Star (Star r) (canon (Star r))). unfold re_equiv in *.
+          symmetry in H. eapply L in H. apply H. auto.
     Qed.
-          
+        
     Lemma canon_equiv : forall e,
         re_equiv (canon e) e.
     Proof.
