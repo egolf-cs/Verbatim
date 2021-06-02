@@ -98,7 +98,9 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
       intros. dm.
       - unfold merge. unfold merge_func. rewrite fix_sub_eq.
         + simpl. rewrite E. auto.
-        + intros. destruct x. 
+        + intros. destruct x. induction x.
+          * auto.
+          * admit.
     Admitted.
 
 

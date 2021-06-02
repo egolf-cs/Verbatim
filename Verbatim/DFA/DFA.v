@@ -103,12 +103,12 @@ Module DFAFn (TabT : Table.T).
   Module Export Correct.
 
     Module Import Mat := MatcherFn TabT.R.
-    
+
+    (* unused? 
     Lemma In_fin_nullable : forall es x,
       reFS.In x (fin_states es)
       -> nullable x = true.
     Admitted.
-    (*
     Proof.
       induction es; intros.
       - contradiction.
@@ -119,22 +119,22 @@ Module DFAFn (TabT : Table.T).
         + auto.
     Qed. *)
 
-    Theorem DFAaccepting_nullable : forall es T e,
-        DFAaccepting (e, T, fin_states es) = nullable e.
+    Theorem DFAaccepting_nullable : forall T e,
+        DFAaccepting (e, T, fin_states (get_states T)) = nullable e.
     Proof.
       intros. unfold DFAaccepting. dm.
-      Admitted.
-    (*
-    Proof.
-      intros. unfold DFAaccepting. repeat dm.
-      apply reFS.mem_2 in E0.
-      apply In_fin_nullable in E0.
-      auto.
-    Qed.*)
+      unfold fin_states. destruct (reFS.mem e (reFS.filter nullable (get_states T))) eqn:E1.
+      - rewrite reFSF.filter_b in E1.
+        + symmetry in E1. apply Bool.andb_true_eq in E1. destruct E1. auto.
+        + admit.
+      - rewrite reFSF.filter_b in E1.
+        + inv E1. rewrite E. auto.
+        + admit.
+    Admitted.
 
     Theorem transition_Table_correct : forall e e' T es,
         regex2dfa e = (e', T, es)
-        -> derived T /\ (exists es', es = fin_states es') /\ canon e = e'.
+        -> derived T /\ (es = fin_states (get_states T)) /\ canon e = e'.
     Proof.
       intros. 
       unfold regex2dfa in *. injection H; intros.
@@ -145,7 +145,7 @@ Module DFAFn (TabT : Table.T).
       - apply derived_get_some in H3.
         + apply H3.
         + eapply derived_closure_all; eauto. apply emptyTable_derived.
-      - eexists; eauto.
+      - inv H. auto.
       - auto.
     Qed.
 
@@ -185,12 +185,12 @@ Module DFAFn (TabT : Table.T).
       apply IHz.
     Qed.
     
-    Theorem accepts_deriv : forall z es T e a,
-        (forall (es : reFS.t) (T : Table) (e : regex),
-            derived T -> DFAaccepts z (e, T, fin_states es) = exp_matchb z e)
+    Theorem accepts_deriv : forall z T e a,
+        (forall (T : Table) (e : regex),
+            derived T -> DFAaccepts z (e, T, fin_states (get_states T)) = exp_matchb z e)
         -> derived T
-        -> DFAaccepts (a :: z) (e, T, fin_states es)
-          = DFAaccepts z (derivative a e, T, fin_states es).
+        -> DFAaccepts (a :: z) (e, T, fin_states (get_states T))
+          = DFAaccepts z (derivative a e, T, fin_states (get_states T)).
     Proof.
       intros. rewrite accepts_cons. do 2 rewrite accepts_str_lst.
       unfold DFAtransition. repeat dm.
@@ -204,22 +204,23 @@ Module DFAFn (TabT : Table.T).
         symmetry. symmetry in C. rewrite match_iff_matchb in *. apply E. auto.
     Qed.
 
-    Theorem accepts_matchb : forall z es T e,
+    Theorem accepts_matchb : forall z T e,
         derived T
-        -> DFAaccepts z (e, T, fin_states es)
+        -> DFAaccepts z (e, T, fin_states (get_states T))
           = exp_matchb z e.
     Proof.
       induction z; intros.
       - rewrite DFAaccepting_nullable. destruct (nullable e) eqn:E.
-        + admit.
-        + admit.
+        + apply nullable_bridge' in E. apply match_iff_matchb. auto.
+        + symmetry. rewrite <- Bool.not_true_iff_false in *. intros C. destruct E.
+          apply nullable_bridge'. symmetry in C. apply match_iff_matchb in C. auto.
       - rewrite accepts_deriv; auto.
         rewrite der_matchb'; auto.
-    Admitted.
+    Qed.
 
-    Theorem accepts_match : forall z es T e,
+    Theorem accepts_match : forall z T e,
         derived T ->
-        (DFAaccepts z (e, T, fin_states es) = true <-> exp_match z e).
+        (DFAaccepts z (e, T, fin_states (get_states T)) = true <-> exp_match z e).
     Proof.
       intros. rewrite accepts_matchb; auto.
       rewrite <- match_iff_matchb. split; symmetry; auto.
@@ -229,28 +230,10 @@ Module DFAFn (TabT : Table.T).
         DFAaccepts z (regex2dfa e) = true <-> exp_match z e.
     Proof.
       intros. destruct regex2dfa eqn:H0. destruct p. apply transition_Table_correct in H0.
-      do 3 destruct H0. subst.
+      do 2 destruct H0. subst.
       rewrite accepts_match; auto.
       apply canon_equiv.
     Qed.
-
-    (*  exp_match s (dfa2regex (regex2dfa r)) <-> exp_match s r *)
-
-    (* true = accepts s fsm <-> exp_match s (dfa2regex fsm) *)
-    (*
-    Lemma foo : forall z dfa,
-        DFAaccepts z dfa = DFAaccepts z (regex2dfa (dfa2regex dfa)).
-    Proof.
-      intros. destruct dfa. destruct p. simpl.
-    Qed.*)
-
-    (*
-    Theorem d2r_accepts_match : forall z dfa,
-        DFAaccepts z dfa = true <-> exp_match z (dfa2regex dfa).
-    Proof.
-      intros.*)
-
-    
 
     Lemma DFAaccepts_dt : forall bs a e,
         DFAaccepts bs (regex2dfa (derivative a e)) = DFAaccepts bs (DFAtransition a (regex2dfa e)).
@@ -261,10 +244,10 @@ Module DFAFn (TabT : Table.T).
         rewrite r2d_accepts_match in *. apply der_match. auto.
     Qed.
 
-    Lemma exact_table_moot : forall bs e T es,
+    Lemma exact_table_moot : forall bs e T,
         derived T
         -> 
-        DFAaccepts bs (e, T, fin_states es) =
+        DFAaccepts bs (e, T, fin_states (get_states T)) =
         DFAaccepts bs (regex2dfa e).
     Proof.
       induction bs; intros; auto.
@@ -289,13 +272,14 @@ Module DFAFn (TabT : Table.T).
       generalize dependent e.
       induction bs; intros; auto.
       - destruct (regex2dfa e) eqn:E. destruct p.
-        apply transition_Table_correct in E. destruct E. destruct H0. destruct H0. subst.
+        apply transition_Table_correct in E. destruct E. destruct H0. subst.
+        subst.
         rewrite accepts_deriv; auto. 2: { intros. apply accepts_matchb. auto. }
         assert(
-          DFAaccepts bs (derivative a (canon e), t0, fin_states x) =
+          DFAaccepts bs (derivative a (canon e), t0, fin_states (get_states t0)) =
           DFAaccepts bs (regex2dfa (derivative a (canon e)))).
         { apply exact_table_moot. auto. }
-        rewrite H0. clear H0 H x t0.
+        rewrite H0. clear H0 H t0.
         rewrite IHbs. 
         assert(
             DFAaccepting (regex2dfa (derivative_list bs (derivative a (canon e)))) =
