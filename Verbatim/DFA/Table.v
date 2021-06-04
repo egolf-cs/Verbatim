@@ -86,7 +86,7 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
     Next Obligation.
       simpl. omega.
     Defined.
-
+      
     (* issues unfolding things *)
     Lemma merge_cons : forall t1 t2 h1 h2,
         match re_compare h1 h2 with
@@ -113,7 +113,7 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
         -> Acc lt ((length (h1 :: t1)) + (length t2)).
     Proof.
       intros. inv H0. inv H. apply H0. simpl. omega.
-    Qed.
+    Defined.
 
 
     Lemma merge_acc2 :
@@ -123,7 +123,7 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
         -> Acc lt ((length t1) + (length (h2 :: t2))).
     Proof. 
       intros. inv H0. inv H. auto.
-    Qed.
+    Defined.
 
 
     Lemma merge_acc3 :
@@ -133,9 +133,9 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
         -> Acc lt ((length (h1 :: t1)) + (length t2)).
     Proof.
       apply merge_acc1.
-    Qed.
-    
-    (*
+    Defined.
+                 
+
     Fixpoint merge' (es1 es2 : list regex)
             (Ha : Acc lt ((length es1) + (length es2)))
             {struct Ha} : list regex :=
@@ -149,7 +149,122 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
         | Lt => h1 :: (merge' t1 (h2 :: t2) (merge_acc2 _ _ _ _ _ _ Ha Heq))
         | Gt => h2 :: (merge' (h1 :: t1) t2 (merge_acc3 _ _ _ _ _ _ Ha Heq))
         end
-      end eq_refl.*)
+      end eq_refl.
+
+    (* Beginning of Sam's contributions *)
+
+    (* lemma for unfolding merge' *)
+    Lemma merge'_eq_body :
+      forall (es1 es2 : list regex)
+             (Ha : Acc lt (length es1 + length es2)),
+        merge' es1 es2 Ha =
+        match (es1, es2) as tpl return (es1, es2) = tpl -> _ with
+        | ([], _) => fun _ => es2
+        | (_, []) => fun _ => es1
+        | (h1 :: t1, h2 :: t2) =>
+          fun Heq =>
+            match re_compare h1 h2 with
+            | Eq => merge' (h1 :: t1) t2 (merge_acc1 _ _ _ _ _ _ Ha Heq)
+            | Lt => h1 :: (merge' t1 (h2 :: t2) (merge_acc2 _ _ _ _ _ _ Ha Heq))
+            | Gt => h2 :: (merge' (h1 :: t1) t2 (merge_acc3 _ _ _ _ _ _ Ha Heq))
+            end
+        end eq_refl.
+    Proof.
+      intros; destruct Ha; auto.
+    Qed.
+
+    (* The original lemma you wanted to prove, 
+       although it's complicated a bit by proof terms *)
+    Lemma merge'_cons :
+      forall t1 t2 h1 h2 Ha,
+        match re_compare h1 h2 with
+        | Eq => merge' (h1 :: t1) (h2 :: t2) Ha =
+                merge' (h1 :: t1) t2 (merge_acc1 _ _ _ _ _ _ Ha eq_refl)
+        | Lt => merge' (h1 :: t1) (h2 :: t2) Ha =
+                h1 :: merge' t1 (h2 :: t2) (merge_acc2 _ _ _ _ _ _ Ha eq_refl)
+        | Gt => merge' (h1 :: t1) (h2 :: t2) Ha =
+                h2 :: merge' (h1 :: t1) t2 (merge_acc3 _ _ _ _ _ _ Ha eq_refl)
+        end.
+    Proof.
+      intros t1 t2 h1 h2 Ha; rewrite merge'_eq_body; dm.
+    Qed.
+
+    (* You can also define a top-level function that calls
+       merge' with the right initial Acc term *)
+    Definition merge'' (es1 es2 : list regex) : list regex :=
+      merge' es1 es2 (lt_wf _).
+
+    (* If you naively start to prove things about it,
+       though, you run into trouble *)
+    Lemma merge''_cons :
+      forall t1 t2 h1 h2,
+        match re_compare h1 h2 with
+        | Eq => merge'' (h1 :: t1) (h2 :: t2) = merge'' (h1 :: t1) t2
+        | Lt => merge'' (h1 :: t1) (h2 :: t2) = h1 :: merge'' t1 (h2 :: t2)
+        | Gt => merge'' (h1 :: t1) (h2 :: t2) = h2 :: merge'' (h1 :: t1) t2
+        end.
+    Proof.
+      intros t1 t2 h1 h2.
+      unfold merge''.
+      dm.
+      - (* uh-oh, the proof terms are different *)
+    Abort.
+
+    (* We need to prove that the function's input/output
+       behavior doesn't depend on the Acc term
+       (seems obvious, but I don't think the general fact
+       is provable within Coq) *)
+    Lemma merge'_ignores_acc' :
+      forall len es1 es2 (Ha Ha' : Acc lt (length es1 + length es2)),
+        len = length es1 + length es2
+        -> merge' es1 es2 Ha = merge' es1 es2 Ha'.
+    Proof.
+      intros len.
+      induction len as [len IH] using lt_wf_ind; intros es1 es2 Ha Ha' Heq; subst.
+      repeat rewrite merge'_eq_body.
+      destruct es1 as [| h1 t1]; auto.
+      destruct es2 as [| h2 t2]; auto.
+      destruct (re_compare h1 h2) eqn:Heq.
+      - apply IH with (m := length (h1 :: t1) + length t2); auto.
+        simpl; omega.
+      - erewrite IH with (m := length t1 + length (h2 :: t2)); eauto.
+      - erewrite IH with (m := length (h1 :: t1) + length t2); eauto.
+        simpl; omega.
+    Qed.
+
+    Lemma merge'_ignores_acc :
+      forall es1 es2 (Ha Ha' : Acc lt (length es1 + length es2)),
+        merge' es1 es2 Ha = merge' es1 es2 Ha'.
+    Proof.
+      intros; eapply merge'_ignores_acc'; eauto.
+    Qed.
+
+    (* Now we can prove the lemma you wanted about the
+       top-level function (this proof could be automated,
+       but I set it up so you can step through if you're
+       curious) *)
+    Lemma merge''_cons :
+      forall t1 t2 h1 h2,
+        match re_compare h1 h2 with
+        | Eq => merge'' (h1 :: t1) (h2 :: t2) = merge'' (h1 :: t1) t2
+        | Lt => merge'' (h1 :: t1) (h2 :: t2) = h1 :: merge'' t1 (h2 :: t2)
+        | Gt => merge'' (h1 :: t1) (h2 :: t2) = h2 :: merge'' (h1 :: t1) t2
+        end.
+    Proof.
+      intros t1 t2 h1 h2.
+      unfold merge''.
+      pose proof (merge'_cons t1 t2 h1 h2) as Hmc.
+      dm.
+      - rewrite Hmc.
+        erewrite merge'_ignores_acc. 
+eauto.
+      - rewrite Hmc.
+        erewrite merge'_ignores_acc; eauto.
+      - rewrite Hmc.
+        erewrite merge'_ignores_acc; eauto.
+    Qed.
+
+    (* End of Sam's contributions *)
     
     Lemma MNil : forall z,
         not (exp_match z EmptySet).
