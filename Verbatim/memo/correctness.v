@@ -112,12 +112,9 @@ Module CorrectFn (Import MEM : memo.T).
             = (Ms'', lexemes, rest)
             /\ h :: t = prefix
           end.
-    (*
     Proof.
-      intros rules code Ha res Heq; subst.
-      rewrite lex'_eq_body.
-      eapply lex'_cases_backward; eauto.
-    Qed.*)
+      intros. rewrite lex'_eq_body__M in H. sis. repeat dm.
+      - subst.
     Admitted.
 
   End CaseLemmas.

@@ -13,6 +13,7 @@ From Verbatim Require Import state.
 From Verbatim Require Import Table.
 From Verbatim Require Import DFA.
 From Verbatim Require Import lexer.impl.
+From Verbatim Require Import Utils.ltac.
 From Verbatim Require Import Utils.asciiFinite.
 From Verbatim Require Import Utils.ascii_order.
 From Verbatim Require Import concrete1.
@@ -100,6 +101,134 @@ Module Export MEM <: memo.T.
       Proof.
         intros. apply DFAaccepting_dt_list.
       Qed.
+
+      (** * Lots of Comparison Stuff *)
+      (* TODO: move all of these somewhere else *)
+
+      Fixpoint key_compare (k1 k2 : TabT.TabTy.FM.key) : comparison :=
+        match k1, k2 with
+          (** (TabT.R.Defs.regex_as_UCT.t * TabT.R.Defs.T_as_UCT.t) **)
+          (e1, a1), (e2, a2) =>
+          match TabT.TabTy.reFS.X'.compare e1 e2 with
+          | Eq => TabT.R.Defs.SigFS.X'.compare a1 a2
+          | x => x
+          end
+        end.
+
+      Fixpoint key_re_list_compare
+               (krs1 krs2 : list (TabT.TabTy.FM.key * TabT.R.Defs.Regexes.regex)) : comparison :=
+        match krs1, krs2 with
+        | [], [] => Eq
+        | [], _ => Lt
+        | _, [] => Gt
+        | (k1, e1) :: t1, (k2, e2) :: t2 =>
+          match key_compare k1 k2 with
+          | Eq =>
+            match re_compare e1 e2 with
+            | Eq => key_re_list_compare t1 t2
+            | x => x
+            end
+          | x => x
+          end
+        end.
+
+      Lemma key_re_list_compare_eq : forall x y, x = y <-> key_re_list_compare x y = Eq.
+      Admitted.
+
+      Fixpoint re_list_compare (es1 es2 : list TabT.R.Defs.reFS.elt) : comparison :=
+        match es1, es2 with
+        | [], [] => Eq
+        | [], _ => Lt
+        | _, [] => Gt
+        | h1 :: t1, h2 :: t2 =>
+          match re_compare h1 h2 with
+          | Eq => re_list_compare t1 t2
+          | x => x
+          end
+        end.
+
+     
+      Definition FS_compare (FS1 FS2 : TabT.R.Defs.reFS.t) : comparison :=
+        re_list_compare (TabT.R.Defs.reFS.elements FS1) (TabT.R.Defs.reFS.elements FS1).
+
+      Lemma FS_compare_eq : forall x y, x = y <-> FS_compare x y = Eq.
+      Admitted.
+
+      Definition FM_compare (FM1 FM2 : TabT.TabTy.FM.t TabT.R.Defs.Regexes.regex) : comparison :=
+        key_re_list_compare (TabT.TabTy.FM.elements FM1)
+                            (TabT.TabTy.FM.elements FM2).
+
+      Lemma FM_compare_eq : forall x y, x = y <-> FM_compare x y = Eq.
+      Proof.
+        intros. unfold FM_compare. rewrite <- key_re_list_compare_eq.
+        split; intros.
+        - rewrite H. auto.
+      Admitted.
+          
+       
+      Definition Table_compare (T1 T2 : TabT.TabTy.Table) : comparison :=
+        match T1, T2 with
+          (map1, set1), (map2, set2) =>
+          match FM_compare map1 map2 with
+          | Eq => FS_compare set1 set2
+          | x => x
+          end
+        end.
+
+      Lemma Table_compare_eq : forall x y, x = y <-> Table_compare x y = Eq.
+      Proof.
+        intros. unfold Table_compare. repeat dm; split; intros; try discriminate.
+        - inv H. apply FS_compare_eq. auto.
+        - apply FS_compare_eq in H. apply FM_compare_eq in E1. subst. auto.
+        - inv H. assert(t1 = t1); auto. apply FM_compare_eq in H. rewrite H in E1. discriminate.
+        - inv H. assert(t1 = t1); auto. apply FM_compare_eq in H. rewrite H in E1. discriminate.
+      Qed.
+
+      Definition stt_compare (s1 s2 : State) : comparison :=
+        match s1, s2 with
+          (e1, T1, fs1), (e2, T2, fs2) =>
+          match re_compare e1 e2 with
+          | Eq => 
+            match Table_compare T1 T2 with
+            | Eq =>
+              match FS_compare fs1 fs2 with
+              | Eq => Eq
+              | x => x
+              end
+            | x => x
+            end
+          | x => x
+          end
+        end.
+
+      Lemma stt_compare_eq : forall x y, stt_compare x y = Eq <-> x = y.
+      Proof.
+        intros. unfold stt_compare. repeat dm; split; intros; auto; try discriminate.
+        - apply re_compare_eq in E3. apply Table_compare_eq in E4. apply FS_compare_eq in E5.
+          subst. auto.
+        - inv H. assert (t1 = t1); auto. apply FS_compare_eq in H.
+          rewrite H in E5. discriminate.
+        - inv H. assert (t1 = t1); auto. apply FS_compare_eq in H.
+          rewrite H in E5. discriminate.
+        - inv H. assert (t2 = t2); auto. apply Table_compare_eq in H.
+          rewrite H in E4. discriminate.
+        - inv H. assert (t2 = t2); auto. apply Table_compare_eq in H.
+          rewrite H in E4. discriminate.
+        - inv H. assert(r0 = r0); auto. apply re_compare_eq in H.
+          rewrite H in E3. discriminate.
+        - inv H. assert(r0 = r0); auto. apply re_compare_eq in H.
+          rewrite H in E3. discriminate.
+      Qed.
+
+      Lemma stt_dec : forall (s1 s2 : State), {s1 = s2} + {s1 <> s2}.
+      Proof.
+        intros. decide equality; clear s1 s2.
+        - clear a0 a p. try apply reFS.eq_dec. admit.
+        - clear b t. decide equality.
+          + clear a1 a0 r a p. decide equality.
+            * clear a a0 t0 t b. try apply reFS.eq_dec. admit.
+            * clear b t b0 t1. admit.
+          + clear a p b t. decide equality.
       
     End Ty.
     

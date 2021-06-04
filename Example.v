@@ -91,7 +91,6 @@ Module Export ST <: state.T.
     Proof.
       auto.
     Qed.
-   
       
     
   End Ty.

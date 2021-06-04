@@ -31,8 +31,6 @@ Module MemoDefsFn (STT : state.T) (MEM : MEMO STT).
   Module Import NaiveLexerF := lexer.correct.CorrectFn STT.
   Import NaiveLexer.MPref.
   
-
-  
   Definition lexy (M : Memo) : Prop :=
     forall stt z o,
       (get_Memo M stt z = Some o

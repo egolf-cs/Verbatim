@@ -329,6 +329,32 @@ Module ImplFn (Import MEM : memo.T).
           apply lt_S_n in H1. eapply IHn; eauto. eapply cons_mprefs__M; eauto.
       Qed.
 
+      Lemma set_Memo_lexy : forall stt0 z0 o o' z stt m,
+          max_pref_fn z stt = o'
+          -> lexy m
+          -> get_Memo (set_Memo m stt z o') stt0 z0 = Some o
+          -> max_pref_fn z0 stt0 = o.
+      Proof.
+        intros. destruct (String_dec z z0).
+        - subst. destruct (stt_compare stt stt0) eqn:E.
+          + apply stt_compare_eq in E. subst. rewrite correct_Memo in H1. inv H1. auto.
+          + assert(stt <> stt0).
+            { intros C. apply stt_compare_eq in C. rewrite C in *. discriminate. }
+            clear E.
+            assert(stt0 <> stt \/ z0 <> z0); auto.
+            eapply correct_Memo_moot in H2; eauto. rewrite H2 in H1.
+            eapply lexy_correct; eauto.
+          + assert(stt <> stt0).
+            { intros C. apply stt_compare_eq in C. rewrite C in *. discriminate. }
+            clear E.
+            assert(stt0 <> stt \/ z0 <> z0); auto.
+            eapply correct_Memo_moot in H2; eauto. rewrite H2 in H1.
+            eapply lexy_correct; eauto.
+        - assert(stt0 <> stt \/ z0 <> z); auto.
+          clear n. eapply correct_Memo_moot in H2; eauto. rewrite H2 in H1.
+          eapply lexy_correct; eauto.
+      Qed.
+
       Lemma lexy_closure : 
         forall code stt M o M',
           lexy M
@@ -336,33 +362,42 @@ Module ImplFn (Import MEM : memo.T).
           -> lexy M'.
       Proof.
         induction code; intros.
-        - simpl in H0. repeat dm; repeat inj_all; auto; discriminate.
-        - simpl in H0. destruct (get_Memo M (transition a stt) code) eqn:E.
-          + repeat dm; repeat inj_all; auto. clear IHcode.
+        {
+          simpl in H0. dm; inv H0; auto.
+        }
+        {
+          simpl in H0. repeat dm.
+          - repeat inj_all. auto.
+          - repeat inj_all. eapply IHcode; eauto.
+          - repeat inj_all. auto.
+          - repeat inj_all. eapply IHcode; eauto.
+          - repeat inj_all. auto.
+          - repeat inj_all. eapply IHcode; eauto.
+          - repeat inj_all.
+            assert(max_pref_fn code (transition a stt) = None).
+            {
+              unfold lexy in H. apply H in E3. auto.
+            }
+            assert(max_pref_fn (a :: code) stt = None).
+            {
+              simpl. repeat dm; try discriminate.
+            }
+            unfold lexy. intros. clear IHcode E3 E1 E2 H0.
+            eapply set_Memo_lexy; eauto.
+          - repeat inj_all.
+            assert(max_pref_fn code (transition a stt) = None).
+            {
+              apply mpref_memo_eq_lexy_F in E; auto.
+            }
+            assert(max_pref_fn (a :: code) stt = None).
+            {
+              simpl. repeat dm; try discriminate.
+            }
+            apply IHcode in E; auto. clear H H0 E3 E1 E2 M IHcode.
             unfold lexy. intros.
-            (*
-            destruct (stt_eq_dec stt0 stt).
-            * destruct (String_dec z (a::code)).
-              -- subst. rewrite correct_Memo in H0. inv H0.
-                 unfold lexy in H. apply H in E. clear H.
-                 simpl. repeat dm; try(discriminate).
-              -- assert(L := correct_Memo_moot).
-                 specialize (L M stt0 stt z (a::code) None). rewrite L in H0; auto.
-            * assert(L := correct_Memo_moot).
-              specialize (L M stt0 stt z (a::code) None). rewrite L in H0; auto.
-          + repeat dm; repeat inj_all; auto; assert(E0' := E0); apply IHcode in E0; auto.
-            unfold lexy. intros.
-            destruct (stt_eq_dec stt0 stt).
-            * destruct (String_dec z (a::code)).
-              -- subst. rewrite correct_Memo in H0. inv H0.
-                 apply mpref_memo_eq_lexy_F in E0'; auto.
-                 simpl. repeat dm; try(discriminate).
-              -- assert(L := correct_Memo_moot).
-                 specialize (L m stt0 stt z (a::code) None). rewrite L in H0; auto.
-            * assert(L := correct_Memo_moot).
-              specialize (L m stt0 stt z (a::code) None). rewrite L in H0; auto.
-      Qed.*)
-      Admitted.
+            eapply set_Memo_lexy; eauto.
+        }
+      Qed.
 
       Lemma lexy_list_closure : 
         forall code rules Ms l0 Ms',
