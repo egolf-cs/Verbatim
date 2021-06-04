@@ -460,13 +460,28 @@ Module ImplFn (Import MEM : memo.T).
     Definition init_Memos (srules : list sRule) : list Memo :=
       (map (fun x => emptyMemo) srules).
 
+    Lemma lexy_list_cons : forall M Ms,
+        lexy M -> lexy_list Ms -> lexy_list (M :: Ms).
+    Proof.
+      intros. unfold lexy_list in *. intros. sis. destruct H1.
+      - subst. auto.
+      - apply H0; auto.
+    Qed.
+
     Lemma init_Memos_lexy : forall srules,
         lexy_list (init_Memos srules).
-    Admitted.
+    Proof.
+      intros. induction srules.
+      - simpl. unfold lexy_list. intros. contradiction.
+      - simpl. apply lexy_list_cons; auto. unfold lexy. intros.
+        rewrite correct_emptyMemo in H. discriminate.
+    Qed.        
 
     Lemma init_Memos_parallel : forall srules,
         length (init_Memos srules) = length srules.
-    Admitted.
+    Proof.
+      intros. induction srules; auto. sis. omega.
+    Qed.
 
     Definition lex__M (rules : list Rule) (code : String) : list Token * String :=
       let
