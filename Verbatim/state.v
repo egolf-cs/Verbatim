@@ -60,6 +60,7 @@ Module DefsFn (R : regex.T) (Ty : STATE R).
         stt_compare x y = Eq <-> x = y.
     Proof.
       intros.
+    Admitted.
 
     Lemma stt_compare_trans : forall c x y z,
         stt_compare x y = c -> stt_compare y z = c -> stt_compare x z = c.
