@@ -41,11 +41,10 @@ Module Type STATE (Import R : regex.T).
   
   Parameter accepts_matches : forall(s : String) (e : regex),
       true = accepts s (init_state e) <-> exp_match s e.
+  
 
-  Parameter stt_compare : State -> State -> comparison.
-  Parameter stt_compare_eq : forall x y, stt_compare x y = Eq <-> x = y.
-  Parameter stt_compare_trans : forall c x y z,
-      stt_compare x y = c -> stt_compare y z = c -> stt_compare x z = c.
+  (*Parameter stt_eq_dec : forall (s1 s2 : State), {s1 = s2} + {s1 <> s2}.*)
+
 
 End STATE.
 
@@ -54,7 +53,27 @@ Module DefsFn (R : regex.T) (Ty : STATE R).
   Import Ty.
   Import R.Defs.
   Import R.Ty.
-    
+
+    Module Export comparable.
+
+    Definition stt_compare (s1 s2 : State) : comparison :=
+      re_compare (init_state_inv s1) (init_state_inv s2).
+
+    Lemma stt_compare_eq : forall x y,
+        stt_compare x y = Eq <-> x = y.
+    Proof.
+      intros.
+    Admitted.
+
+    Lemma stt_compare_trans : forall c x y z,
+        stt_compare x y = c -> stt_compare y z = c -> stt_compare x z = c.
+    Admitted.
+
+    (*
+    Lemma stt_eq_dec : forall (x y : State), {x = y} + {x <> y}.
+    Admitted.*)
+
+  End comparable.
 
   Module State_as_UCT <: UsualComparableType.
     Definition t := State.
