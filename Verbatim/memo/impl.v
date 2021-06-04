@@ -336,6 +336,10 @@ Module ImplFn (Import MEM : memo.T).
           -> max_pref_fn z0 stt0 = o.
       Proof.
         intros. destruct (String_dec z z0).
+        (* originally tried to find an ordering on State *)
+        (* realized that was too much, tried to find decidable equality *)
+        (* seems like even that is too much, considering that 
+           the Table and final states doesn't change, only the state-pointer *)
         - subst. destruct (stt_compare stt stt0) eqn:E.
           + apply stt_compare_eq in E. subst. rewrite correct_Memo in H1. inv H1. auto.
           + assert(stt <> stt0).

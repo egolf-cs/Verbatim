@@ -67,6 +67,7 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
       | _ => [e]
       end.
 
+    (**
     (* automation *)
     Program Fixpoint merge (es1 es2 : list regex)
             { measure ((length es1) + (length es2)) } : list regex :=
@@ -100,8 +101,9 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
         + simpl. rewrite E. auto.
         + intros. destruct x. induction x.
           * auto.
-          * admit.
-    Admitted.
+          * 
+    Abort.
+     *)
 
 
 
@@ -256,8 +258,7 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
       pose proof (merge'_cons t1 t2 h1 h2) as Hmc.
       dm.
       - rewrite Hmc.
-        erewrite merge'_ignores_acc. 
-eauto.
+        erewrite merge'_ignores_acc. eauto.
       - rewrite Hmc.
         erewrite merge'_ignores_acc; eauto.
       - rewrite Hmc.
@@ -265,6 +266,20 @@ eauto.
     Qed.
 
     (* End of Sam's contributions *)
+
+    (* Cleanly pack those contributions *)
+    Definition merge := merge''.
+    
+    Lemma merge_cons :
+      forall t1 t2 h1 h2,
+        match re_compare h1 h2 with
+        | Eq => merge (h1 :: t1) (h2 :: t2) = merge (h1 :: t1) t2
+        | Lt => merge (h1 :: t1) (h2 :: t2) = h1 :: merge t1 (h2 :: t2)
+        | Gt => merge (h1 :: t1) (h2 :: t2) = h2 :: merge (h1 :: t1) t2
+        end.
+    Proof.
+      apply merge''_cons.
+    Qed.
     
     Lemma MNil : forall z,
         not (exp_match z EmptySet).
