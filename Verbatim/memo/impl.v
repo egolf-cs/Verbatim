@@ -13,6 +13,7 @@ Module ImplFn (Import MEM : memo.T).
   Module Import MEMO := MEM.MemTy.
   Module Import Defs := MEM.Defs.
   Import Defs.NaiveLexer.
+  Import Defs.NaiveLexer.MPref.
   Import MEM.STT.Defs.
   Import MEM.STT.Ty.
 

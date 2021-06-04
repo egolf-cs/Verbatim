@@ -14,6 +14,7 @@ Module LemmasFn (Import ST : state.T).
   Import ST.Ty.
   Module IMPL := ImplFn ST.
   Import IMPL.
+  Import IMPL.MPref.
   Import MatchSpec.
 
   Lemma lex'_eq_body :

@@ -29,6 +29,8 @@ Module MemoDefsFn (STT : state.T) (MEM : MEMO STT).
   Import MEM.
   Module Import NaiveLexer := lexer.impl.ImplFn STT.
   Module Import NaiveLexerF := lexer.correct.CorrectFn STT.
+  Import NaiveLexer.MPref.
+  
 
   
   Definition lexy (M : Memo) : Prop :=

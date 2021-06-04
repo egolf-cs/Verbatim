@@ -6,6 +6,7 @@ Require Import FSets FSets.FMapAVL FSets.FMapFacts.
 From Verbatim Require Import state.
 From Verbatim Require Import memo.
 From Verbatim Require Import Orders.
+From Verbatim Require Import ltac.
 
 
 Module FMemo (STT : state.T) <: MEMO STT.
@@ -32,16 +33,23 @@ Module FMemo (STT : state.T) <: MEMO STT.
 
 
   Lemma correct_Memo : forall M stt z o, get_Memo (set_Memo M stt z o) stt z = Some (o).
-  Admitted.
+  Proof.
+    intros. unfold get_Memo. unfold set_Memo. apply FMF.add_eq_o. auto.
+  Qed.
   
   Lemma correct_Memo_moot : forall M stt stt' z z' o,
       (stt <> stt' \/ z <> z')
       -> 
       get_Memo (set_Memo M stt' z' o) stt z = get_Memo M stt z.
-  Admitted.
-  
+  Proof.
+    intros. unfold get_Memo. unfold set_Memo. apply FMF.add_neq_o.
+    intros C. inv C. destruct H; contradiction.
+  Qed.
+    
   Lemma correct_emptyMemo : forall stt z, get_Memo emptyMemo stt z = None.
-  Admitted.
+  Proof.
+    intros. unfold get_Memo. unfold emptyMemo. apply FMF.empty_o.
+  Qed.
   
 
 End FMemo.

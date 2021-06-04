@@ -13,9 +13,10 @@ Module CorrectFn (Import MEM : memo.T).
   Import MEM.STT.Defs.
   Import MEM.Defs.
   Module Import IMPL := ImplFn MEM.
+  Import MEM.Defs.NaiveLexerF.LEM.IMPL.Lex.
+  Import MEM.Defs.NaiveLexerF.LEM.
   Import MEM.Defs.NaiveLexerF.
-  Import LEM.IMPL.Lex.
-  Import LEM.
+  Import MEM.Defs.NaiveLexer.MPref.
   Import IMPL.
   Import MEMO.
 
@@ -121,77 +122,155 @@ Module CorrectFn (Import MEM : memo.T).
 
   End CaseLemmas.
 
-  Lemma momprefs_memo_F : forall code rus l o Ms' l' o',
+  Lemma momprefs_memo_F : forall code rus l o Ms Ms' l' o',
       max_of_prefs (max_prefs code rus) = (l, o)
-      -> max_of_prefs__M (max_prefs__M (init_Memos rus) code rus) = (Ms', l', o')
+      -> max_of_prefs__M (max_prefs__M Ms code rus) = (Ms', l', o')
+      -> lexy_list Ms
+      -> length Ms = length rus
       -> (l, o) = (l', o').
-  Admitted.
+  Proof.
+    intros. destruct (max_prefs__M Ms code rus) eqn:E.
+    apply mprefs_memo_F in E; auto.
+    assert(max_prefs code rus = l1).
+    {
+      rewrite E. auto.
+    }
+    rewrite <- H3 in H0.
+    sis.
+    assert (Defs.NaiveLexer.MPref.max_of_prefs (max_prefs code rus)
+            = max_of_prefs (max_prefs code rus)).
+    {
+      auto.
+    }
+    rewrite H3 in *. clear H3.
+    destruct (max_of_prefs (max_prefs code rus)).
+    destruct (Defs.NaiveLexer.MPref.max_of_prefs l1).
+    inv H0. auto.
+  Qed.
 
-  Lemma lex'_memo_eq_ts : forall code (Ha : Acc lt (length code))
-                           ts rus rest ts' rest' Ms Hlexy Hlen,
+  Lemma lex'_memo_eq_ts : forall ts ts' code
+                           (Ha Ha' : Acc lt (length code))
+                           rus rest rest' iMs Ms Hlexy Hlen,
     lex' rus code Ha = (ts, rest)
-    -> lex'__M (init_Memos rus) rus code
-         Ha Hlexy Hlen = (Ms, ts', rest')
+    -> lex'__M iMs rus code
+            Ha' Hlexy Hlen = (Ms, ts', rest')
     -> ts = ts'.
   Proof.
-    intros. apply lex'_cases in H. apply lex'_cases__M in H0.
-    destruct ts; destruct ts'; auto.
+    induction ts; destruct ts'; auto;
+    intros; apply lex'_cases in H; apply lex'_cases__M in H0.
     - exfalso. destruct t. destruct H0 as (Ms'' & Ms' & h & y & suffix & Heq' & H0).
       destruct H. destruct H1.
       + clear H0.
-        destruct (max_of_prefs (max_prefs code rus)) eqn:E. simpl in H1. rewrite H1 in *. clear H1.
+        destruct (max_of_prefs (max_prefs code rus)) eqn:E. simpl in H1.
+        assert(MPref.max_of_prefs (MPref.max_prefs code rus)
+               = max_of_prefs (max_prefs code rus)).
+        { auto. }
+        rewrite H0 in H1. clear H0.
+        rewrite E in H1. simpl in H1. rewrite H1 in *. clear H1.
         apply momprefs_memo_F with (l := l0) (o := None) in Heq'; auto.
         discriminate.
       + clear H0.
         destruct (max_of_prefs (max_prefs code rus)) eqn:E. simpl in H1.
-        destruct H1. rewrite H0 in *. clear H0.
+        destruct H1.
+        assert(MPref.max_of_prefs (MPref.max_prefs code rus)
+               = max_of_prefs (max_prefs code rus)).
+        { auto. }
+        rewrite H1 in H0. clear H1. rewrite E in H0.
+        simpl in H0. rewrite H0 in *. clear H0.
         apply momprefs_memo_F with (l := l0) (o := Some ([], x)) in Heq'; auto.
         discriminate.
-    - exfalso. destruct t. destruct H as (h & t & suffix & Heq' & H).
+    - exfalso. destruct a. destruct H as (h & t & suffix & Heq' & H).
       destruct H. destruct H0. destruct H2.
-      + destruct (max_of_prefs__M (max_prefs__M (init_Memos rus) code rus)) eqn:E.
+      + destruct (max_of_prefs__M (max_prefs__M iMs code rus)) eqn:E.
         simpl in H2. rewrite H2 in *. clear H2.
         destruct p0.
         apply momprefs_memo_F with (l := l) (o := Some (h :: t, suffix)) in E; auto.
         discriminate.
-      + destruct (max_of_prefs__M (max_prefs__M (init_Memos rus) code rus)) eqn:E.
+      + destruct (max_of_prefs__M (max_prefs__M iMs code rus)) eqn:E.
         destruct H2.
         simpl in H2. rewrite H2 in *. clear H2.
         destruct p0.
         apply momprefs_memo_F with (l := l) (o := Some (h :: t, suffix)) in E; auto.
         discriminate.
-    - destruct t. destruct t0.
+    - destruct a. destruct t.
       destruct H as (h & t & suffix & Heq & Hlex' & Hp).
       destruct H0 as (Ms'' & Ms' & h0 & t0 & suffix0 & Heq0 & Hlex'0 & Hp0).
       subst.
-      clear Hlex'0. (** <--- watch out for this **)
+      assert (suffix = suffix0 -> ts = ts').
+      {
+        intros. subst. eapply IHts; eauto.
+      } 
+      clear Hlex'0.
       apply momprefs_memo_F with (l := l) (o := Some (h :: t, suffix)) in Heq0; auto.
-      injection Heq0. intros. subst.
-      (** either need induction or need Hlex'0; pretty close though  **)
-      admit.
-  Admitted.
+      inv Heq0. intros. subst. destruct H; reflexivity.
+  Qed.
+
+  Lemma lex'_memo_splits : forall ts' ts code (Ha Ha' : Acc lt (length code))
+                           rus rest rest' iMs Ms Hlexy Hlen,
+    lex' (map init_srule rus) code Ha = (ts, rest)
+    -> lex'__M iMs (map init_srule rus) code
+         Ha' Hlexy Hlen = (Ms, ts', rest')
+    -> code = (concat (map snd ts')) ++ rest'.
+  Proof.
+    induction ts'; destruct ts; intros.
+    {
+      simpl. apply lex'_cases__M in H0. destruct H0. auto.
+    }
+    {
+      eapply lex'_memo_eq_ts in H; eauto. discriminate.
+    }
+    {
+      eapply lex'_memo_eq_ts in H; eauto. discriminate.
+    } 
+    {
+      apply lex'_cases__M in H0. destruct a.
+      destruct H0 as (Ms'' & Ms' & h0 & t0 & suffix0 & Heq0 & Hlex'0 & Hp0).
+      apply lex'_cases in H. destruct t.
+      destruct H as (h & t & suffix & Heq & Hlex' & Hp).
+      assert(suffix = suffix0 -> code = concat (map snd ((l, p) :: ts')) ++ rest').
+      {
+        intros. subst. eapply IHts' in Hlex'0; eauto.
+        simpl. rewrite <- app_assoc. rewrite <- Hlex'0.
+        eapply momprefs_memo_F in Heq0; eauto. clear Hlex'0. inv Heq0.
+        clear Hlex'. apply exists_rus_of_mpref in Heq. destruct Heq. destruct H.
+        symmetry in H0. apply max_pref_fn_splits in H0. auto.
+      }
+      apply H. clear Hlex' Hlex'0 H. eapply momprefs_memo_F in Heq; eauto.
+      inv Heq. auto.
+    }
+    Qed.
+      
+      
   
-  Lemma lex'_memo_eq_rest : forall code (Ha : Acc lt (length code))
-                           ts rus rest ts' rest' Ms Hlexy Hlen,
-    lex' rus code Ha = (ts, rest)
-    -> lex'__M (init_Memos rus) rus code
-         Ha Hlexy Hlen = (Ms, ts', rest')
+  Lemma lex'_memo_eq_rest : forall code (Ha Ha' : Acc lt (length code))
+                           ts rus rest ts' rest' iMs Ms Hlexy Hlen,
+    lex' (map init_srule rus) code Ha = (ts, rest)
+    -> lex'__M iMs (map init_srule rus) code
+         Ha' Hlexy Hlen = (Ms, ts', rest')
     -> rest = rest'.
-    (** this will probably be similar to eq_ts above **)
-  Admitted.
+  Proof.
+    intros.
+    assert (ts = ts').
+    {
+      eapply lex'_memo_eq_ts; eauto.
+    }
+    subst.
+    eapply lex'_memo_splits in H0; eauto. apply lex'_splits in H.
+    rewrite H in *. apply app_inv_head in H0. auto.
+  Qed.
 
   Theorem lex'_memo_eq : forall code (Ha : Acc lt (length code))
                            ts rus rest ts' rest' Ms Hlexy Hlen,
-    lex' rus code Ha = (ts, rest)
-    -> lex'__M (init_Memos rus) rus code
+    lex' (map init_srule rus) code Ha = (ts, rest)
+    -> lex'__M (init_Memos (map init_srule rus)) (map init_srule rus) code
          Ha Hlexy Hlen = (Ms, ts', rest')
     -> (ts, rest) = (ts', rest').
   Proof.
     intros.
     assert(ts = ts').
-    { apply lex'_memo_eq_ts with (ts := ts) (rest := rest) in H0; auto. }
+    { eapply lex'_memo_eq_ts with (ts := ts) (rest := rest) in H0; eauto. }
     assert(rest = rest').
-    { apply lex'_memo_eq_rest with (ts := ts) (rest := rest) in H0; auto. }
+    { eapply lex'_memo_eq_rest with (ts := ts) (rest := rest) in H0; eauto. }
     subst. auto.
   Qed.
     
@@ -224,3 +303,5 @@ Module CorrectFn (Import MEM : memo.T).
   Proof.
     intros. rewrite lex_memo_eq in *. apply lex_complete; auto.
   Qed.
+  
+End CorrectFn.

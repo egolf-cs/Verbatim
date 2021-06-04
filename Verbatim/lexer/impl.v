@@ -12,7 +12,7 @@ Module ImplFn (Import ST : state.T).
   Import ST.Ty.
   Import ST.Defs.
   
-  Module Export MPref.
+  Module Import MPref.
     
     Fixpoint max_pref_fn (s : String) (state : State)
     : option (Prefix * Suffix):=
