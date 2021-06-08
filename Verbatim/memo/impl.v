@@ -65,6 +65,34 @@ Module ImplFn (Import MEM : memo.T).
         | (M', Some (p, q)) => (M', Some (a :: p, q))
         end
       end.
+    
+    Fixpoint max_pref_fn__M0 (M : Memo) (s : String) (sd : State * Delta)
+      : Memo * option (String * String) :=
+      let (state, d) := sd in
+      match s with
+      (* in a regex approach, accepting := nullable *)
+      | [] => if accepting state d then (M, Some ([],[])) else (M, None)
+      | a :: s' =>
+        let
+          (* in a regex approach, transition := derivative *)
+          state' := transition a state d in
+        let
+          lookup := get_Memo M state' s' in
+        let
+          mpxs :=
+          match lookup with
+          | None => max_pref_fn__M0 M s' (state', d)
+          | Some o => (M, o)
+          end
+        in
+
+        match mpxs with
+        | (M', None) => if (accepting state' d) then (M' , Some ([a], s')) else
+                         if (accepting state d) then (M', Some ([], s)) else
+                           ((set_Memo M' state s None), None)
+        | (M', Some (p, q)) => (M', Some (a :: p, q))
+        end
+      end.
 
     (** Multi-rule Prefixer **)
     Definition extract_fsm_for_max__M (code : String) (sru : Memo * (Label * State * Delta))
@@ -72,6 +100,15 @@ Module ImplFn (Import MEM : memo.T).
       match sru with
         (M, (a, fsm, d)) =>
         match max_pref_fn__M M code fsm d with
+          (M', o) => (M', (a, o))
+        end
+      end.
+    
+    Definition extract_fsm_for_max__M0 (code : String) (sru : Memo * (Label * State * Delta))
+      : Memo * (Label * option (Prefix * Suffix)) :=
+      match sru with
+        (M, (a, fsm, d)) =>
+        match max_pref_fn__M0 M code (fsm, d) with
           (M', o) => (M', (a, o))
         end
       end.
@@ -87,6 +124,23 @@ Module ImplFn (Import MEM : memo.T).
           mapped := map (extract_fsm_for_max__M code) zipped
         in
         unzip mapped.
+
+
+    Definition max_prefs__M0 (Ms : list Memo) (code : String) (erules : list (Label * State * Delta))
+      : (list Memo) * list (Label * option (Prefix * Suffix))
+      :=
+        let
+          zipped := zip Ms erules 
+        in
+        let
+          mapped := map (extract_fsm_for_max__M0 code) zipped
+        in
+        unzip mapped.
+
+    Lemma eq0 : forall Ms code rules,
+        max_prefs__M Ms code rules = max_prefs__M0 Ms code rules.
+    Admitted.
+
 
     Fixpoint max_of_prefs__M (mprefs : list Memo
                                      * list (Label * (option (Prefix * Suffix))))
@@ -191,6 +245,17 @@ Module ImplFn (Import MEM : memo.T).
       Proof.
         intros. eapply acc_helper__M in H0; eauto; eapply acc_recursive_call; eauto.
       Defined.
+
+      Lemma acc_recursive_call__M0 :
+        forall code rules label s l suffix Ms Ms',
+          Acc lt (length code)
+          -> lexy_list (zip Ms (map snd rules))
+          -> length Ms = length rules
+          -> max_of_prefs__M (max_prefs__M0 Ms code rules) = (Ms', label, Some (s :: l, suffix))
+          -> Acc lt (length suffix).
+      Proof.
+        intros. rewrite <- eq0 in *. eapply acc_recursive_call__M; eauto.
+      Defined.
       
 
     End Accessible.
@@ -256,7 +321,16 @@ Module ImplFn (Import MEM : memo.T).
         subst. clear H0.
         assert(L := all_lens_const Ms rules code Ms' l1 H E). destruct L. omega.
       Qed.
-      
+
+      Lemma len_recursive_call0 :
+        forall code rules label s l suffix Ms Ms',
+          length Ms = length rules
+          -> max_of_prefs__M (max_prefs__M0 Ms code rules) = (Ms', label, Some (s :: l, suffix))
+          -> length Ms' = length rules.
+      Proof.
+        intros. rewrite <- eq0 in *. eapply len_recursive_call; eauto.
+      Qed.
+
     End Lengths.
 
     Module Export LexyClosure.
@@ -511,8 +585,20 @@ Module ImplFn (Import MEM : memo.T).
           -> length Ms = length rules
           -> max_of_prefs__M (max_prefs__M Ms code rules) = (Ms', label, Some (s :: l, suffix))
           -> lexy_list (zip Ms' (map snd rules)).
+      Proof.
         intros. eapply lexy_recursive_call_gen in H; eauto.
       Qed.
+
+      Lemma lexy_recursive_call0 :
+        forall code rules Ms label s l suffix Ms',
+          lexy_list (zip Ms (map snd rules))
+          -> length Ms = length rules
+          -> max_of_prefs__M (max_prefs__M0 Ms code rules) = (Ms', label, Some (s :: l, suffix))
+          -> lexy_list (zip Ms' (map snd rules)).
+      Proof.
+        intros. rewrite <- eq0 in *. eapply lexy_recursive_call; eauto.
+      Qed.
+
 
     End LexyClosure.
     
@@ -544,6 +630,33 @@ Module ImplFn (Import MEM : memo.T).
           | (Ms'', lexemes, rest) => (Ms'', ((label, ph :: pt) :: lexemes), rest)
           end
       end eq_refl.
+
+    (*
+    Fixpoint lex'__M0
+             (Ms : list Memo)
+             (rules : list (sdRule))
+             (code : String)
+             (Ha : Acc lt (length code))
+             (Hlexy : lexy_list (zip Ms (map snd rules)))
+             (Hlen : length Ms = length rules)
+             {struct Ha} : (list Memo) * (list Token) * String :=
+      match max_of_prefs__M (max_prefs__M0 Ms code rules) as mpref'
+            return max_of_prefs__M (max_prefs__M0 Ms code rules) = mpref' -> _
+      with
+      | (Ms', _, None) => fun _ => (Ms', [], code) (* Code cannot be processed further *)
+      | (Ms', _, Some ([], _)) => fun _ => (Ms', [], code) (* Code cannot be processed further *)
+      | (Ms', label, Some (ph :: pt, suffix)) =>
+        fun Heq =>
+          match (lex'__M0 Ms' rules suffix
+                       (acc_recursive_call__M0 _ _ _ _ _ _ _ _ Ha Hlexy Hlen Heq)
+                       (lexy_recursive_call0 _ _ _ _ _ _ _ _ Hlexy Hlen Heq)
+                       (len_recursive_call0 _ _ _ _ _ _ _ _ Hlen Heq)
+                )
+          with
+          | (Ms'', lexemes, rest) => (Ms'', ((label, ph :: pt) :: lexemes), rest)
+          end
+      end eq_refl. *)
+
 
     Definition init_sdrule (rule : Rule) : sdRule :=
       match rule with
@@ -586,6 +699,18 @@ Module ImplFn (Import MEM : memo.T).
        with
        | (_, ts, rest) => (ts, rest)
        end.
+
+    (*
+    Definition lex__M0 (rules : list Rule) (code : String) : list Token * String :=
+      let
+        srules := map init_sdrule rules
+      in
+      match
+        lex'__M0 (init_Memos srules) srules code
+              (lt_wf _) (init_Memos_lexy _) (init_Memos_parallel _)
+       with
+       | (_, ts, rest) => (ts, rest)
+       end.*)
 
   End Lex.
 

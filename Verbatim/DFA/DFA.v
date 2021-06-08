@@ -16,15 +16,16 @@ Module DFAFn (TabT : Table.T).
   Module Export CoreDefs.
 
     Fixpoint char_set (e : regex) : list Sigma :=
-      SigmaEnum.
-    (*
+     (* SigmaEnum. *)
+    
       match e with
       | EmptySet | EmptyStr => []
       | Char a => [a]
       | Union e1 e2 | App e1 e2 => nodup Sigma_dec ((char_set e1) ++ (char_set e2))
       | Star e1 => char_set e1
       end.
-     *)
+     
+     
      
 
     Fixpoint regex_depth (e : regex) : nat := 

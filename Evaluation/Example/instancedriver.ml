@@ -1,6 +1,6 @@
 open Instance
 open L.Lex
-open L.Defs
+(* open L.Defs *)
 
 let to_string chars =
   let buf = Buffer.create 16 in
