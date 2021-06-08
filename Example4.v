@@ -64,55 +64,96 @@ Module Export MEM <: memo.T.
 
       Module Export D := DFAFn TabT. 
       
-      Definition State := DFA.
-      Definition defState := defDFA.
+      Definition State := regex.
+      Definition defState := EmptySet.
       
-      Definition transition (a : Sigma) (e : State) : State := DFAtransition a e.
-      Definition transition_list := DFAtransition_list.
+      Definition Delta : Type := TabT.TabTy.Table * TabT.R.Defs.reFS.t.
+      (* State + Delta = DFA, but now the lookup table is separate from the state *)
+      Definition defDelta : Delta := (TabT.TabTy.emptyTable, TabT.TabTy.reFS.empty).
+      Definition init_delta (e : regex) : Delta :=
+        match regex2dfa e with
+          (e', x, y) => (x,y)
+        end.
       
-      Definition accepts (z : String) (e : State) : bool := DFAaccepts z e.
-      Definition accepting := DFAaccepting.
+      Definition transition (a : Sigma) (e : State) (d : Delta) : State :=
+        let (x,y) := d in
+        match DFAtransition a (e,x,y) with
+          (e',x',y') => e'
+        end.
+      Fixpoint transition_list (bs : list Sigma) (fsm : State) (d : Delta) : State :=
+        let (x,y) := d in
+        match DFAtransition_list bs (fsm, x, y) with
+          (e', x', y') => e'
+        end.
 
-      Lemma accepts_nil: forall(fsm : State), accepting fsm = accepts [] fsm.
+      Lemma transition_list_nil : forall fsm d,
+          transition_list [] fsm d = fsm.
+      Admitted.
+      Lemma transition_list_cons : forall bs a fsm d,
+          transition_list (a :: bs) fsm d = transition_list bs (transition a fsm d) d.
+      Admitted.
+      
+      Definition accepts (z : String) (e : State) (d : Delta) : bool :=
+        let (x,y) := d in DFAaccepts z (e,x,y).
+      Definition accepting (e : State) (d : Delta) : bool :=
+        let (x,y) := d in DFAaccepting (e,x,y).
+
+      Lemma accepts_nil: forall(fsm : State) d, accepting fsm d = accepts [] fsm d.
       Proof. intros fsm. reflexivity. Qed.
 
-      Lemma accepts_transition : forall cand a fsm,
-          accepts cand (transition a fsm) = accepts (a :: cand) fsm.
-      Proof. auto. Qed.
+      Lemma accepts_transition : forall cand a fsm e d,
+          accepts cand (transition a fsm (init_delta e)) d
+          = accepts (a :: cand) fsm d.
+      Proof.
+        intros. unfold accepts. destruct d. unfold transition.
+        unfold init_delta in *.
+        repeat dm. inv E. (* lots of stuff to unify *)
+      Admitted.
 
-      Definition init_state (r : regex) : State := regex2dfa r.
-      Definition init_state_inv (r : State) : regex := dfa2regex r.
+      Definition init_state (r : regex) : State := r.
+      Definition init_state_inv (r : State) : regex := r.
       
       Lemma invert_init_correct : forall r s,
           exp_match s (init_state_inv (init_state r)) <-> exp_match s r.
-      Proof. intros. simpl. apply TabT.Defs.FillTable.canon_equiv. Qed.
+      Proof. intros. simpl. unfold init_state. unfold init_state_inv. reflexivity. Qed.
       
-      Lemma accepts_matches : forall(s : String) (e : regex),
-          true = accepts s (init_state e) <-> exp_match s e.
-      Proof.
+      Lemma accepts_matches :  forall(s : String) (e e': regex),
+          true = accepts s (init_state e) (init_delta e') <-> exp_match s e.
+      Admitted.
+      (*Proof.
         split; intros.
-        - symmetry in H. apply r2d_accepts_match. auto.
-        - symmetry. apply r2d_accepts_match. auto.
-      Qed.
+        - symmetry in H. apply r2d_accepts_match.
+          unfold accepts in *. unfold init_state in *. unfold init_delta in *.
+          repeat dm. repeat inj_all. apply transition_Table_correct in E0.
+          destruct E0 as (H0 & H1 & H2). rewrite H1 in *. rewrite <- H2 in *.
+          rewrite accepts_matchb in *; auto.
+          pose proof (TabT.Defs.FillTable.canon_equiv e). unfold re_equiv in *.
+          symmetry in H. symmetry. rewrite Mat.match_iff_matchb in *. apply H3; auto.
+        - symmetry. apply r2d_accepts_match in H. 
+          unfold accepts in *. unfold init_state in *. unfold init_delta in *.
+          repeat dm. repeat inj_all. apply transition_Table_correct in E0.
+          destruct E0 as (H0 & H1 & H2). rewrite H1 in *. rewrite <- H2 in *.
+          rewrite accepts_matchb in *; auto.
+          pose proof (TabT.Defs.FillTable.canon_equiv e). unfold re_equiv in *.
+          symmetry in H. symmetry. rewrite Mat.match_iff_matchb in *. apply H3; auto.
+      Qed.*)
 
-      Definition accepting_dt_list : forall bs e,
-          accepting (transition_list bs (init_state e))
-          = accepting (init_state (derivative_list bs e)).
-      Proof.
-        intros. apply DFAaccepting_dt_list.
-      Qed.
+      Definition accepting_dt_list : forall bs e0 e1 e2,
+      accepting (transition_list bs (init_state e0) (init_delta e1)) (init_delta e2)
+        = accepting (init_state (derivative_list bs e0)) (init_delta e2).
+      Admitted.
 
-      (*Lemma stt_dec : forall (s1 s2 : State), {s1 = s2} + {s1 <> s2}.
-      Proof.
-        intros. decide equality; clear s1 s2.
-        - clear a0 a p. try apply reFS.eq_dec. admit.
-        - clear b t. decide equality.
-          + clear a1 a0 r a p. decide equality.
-            * clear a a0 t0 t b. try apply reFS.eq_dec. admit.
-            * clear b t b0 t1. admit.
-          + clear a p b t. decide equality.
-      Admitted.*)
+      
+      Definition stt_compare (s1 s2 : State) : comparison :=
+        re_compare s1 s2.
 
+      Lemma stt_compare_eq : forall x y,
+          stt_compare x y = Eq <-> x = y.
+      Proof. apply re_compare_eq. Qed.
+
+      Lemma stt_compare_trans : forall c x y z,
+          stt_compare x y = c -> stt_compare y z = c -> stt_compare x z = c.
+      Proof. apply re_compare_trans. Qed.
       
     End Ty.
     

@@ -29,17 +29,18 @@ Module MemoDefsFn (STT : state.T) (MEM : MEMO STT).
   Import MEM.
   Module Import NaiveLexer := lexer.impl.ImplFn STT.
   Module Import NaiveLexerF := lexer.correct.CorrectFn STT.
+  Import STT.Ty.
   Import NaiveLexer.MPref.
   
-  Definition lexy (M : Memo) : Prop :=
+  Definition lexy (M : Memo) (d : Delta) : Prop :=
     forall stt z o,
       (get_Memo M stt z = Some o
-       -> max_pref_fn z stt = o)
+       -> max_pref_fn z stt d = o)
       (*/\ (max_pref_fn z stt = o
          -> (get_Memo M stt z = Some o \/ get_Memo M stt z = None))*).
 
-  Definition lexy_list (Ms : list Memo) : Prop :=
-    forall M, In M Ms -> lexy M.
+  Definition lexy_list (Ms : list (Memo * Delta)) : Prop :=
+    forall M d, In (M, d) Ms -> lexy M d.
 
 
 End MemoDefsFn.

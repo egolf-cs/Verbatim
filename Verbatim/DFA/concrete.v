@@ -7,8 +7,9 @@ From Verbatim Require Import Table.
 
 Module naiveTable (R : regex.T) <: TABLE R.
 
-  Import R.
   Import R.Ty.
+  Module Import DS := R.Defs.
+  Module Import reFS := DS.reFS.
 
   Definition SigmaMap : Type := list (Sigma * regex).
 
@@ -170,7 +171,7 @@ Module naiveTable (R : regex.T) <: TABLE R.
   Lemma empty_states : get_states emptyTable = [].
   Proof. auto. Qed.
 
-  Lemma correct_states : forall T r, In r (get_states (add_state T r)).
+  Lemma correct_states : forall T r, List.In r (get_states (add_state T r)).
   Proof.
     intros. destruct T. simpl. auto.
   Qed.

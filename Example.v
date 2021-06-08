@@ -54,23 +54,24 @@ Module Export ST <: state.T.
     Definition State := regex.
     Definition defState := EmptySet.
     Definition startState := EmptySet.
+    Definition Delta := bool.
     
-    Definition transition (a : Sigma) (e : State) : State := derivative a e.
-    Fixpoint transition_list (bs : list Sigma) (fsm : State) : State :=
+    Definition transition (a : Sigma) (e : State) (d : Delta) : State := derivative a e.
+    Fixpoint transition_list (bs : list Sigma) (fsm : State) (d : Delta) : State :=
     match bs with
     | [] => fsm
-    | c :: cs => transition_list cs (transition c fsm)
+    | c :: cs => transition_list cs (transition c fsm d) d
     end.
 
     
-    Definition accepts (z : String) (e : State) : bool := exp_matchb z e.
-    Definition accepting := nullable.
+    Definition accepts (z : String) (e : State) (d : Delta) : bool := exp_matchb z e.
+    Definition accepting (e : State) (d : Delta) : bool := nullable e.
 
-    Lemma accepts_nil: forall(fsm : State), accepting fsm = accepts [] fsm.
+    Lemma accepts_nil: forall(fsm : State) d, accepting fsm d = accepts [] fsm d.
     Proof. intros fsm. reflexivity. Qed.
 
-    Lemma accepts_transition : forall cand a fsm,
-        accepts cand (transition a fsm) = accepts (a :: cand) fsm.
+    Lemma accepts_transition : forall cand a fsm d,
+        accepts cand (transition a fsm d) d = accepts (a :: cand) fsm d.
     Proof. auto. Qed.
 
     Definition init_state (r : regex) : State := r.
@@ -79,17 +80,27 @@ Module Export ST <: state.T.
     Lemma invert_init_correct : forall r s,
         exp_match s (init_state_inv (init_state r)) <-> exp_match s r.
     Proof. intros. split; auto. Qed.
+
+    Definition init_delta (e : regex) : Delta := false.
     
-    Lemma accepts_matches : forall(s : String) (fsm : State),
-        true = accepts s fsm <-> exp_match s (init_state_inv fsm).
+    Definition accepts_matches : forall(s : String) (e : regex),
+      true = accepts s (init_state e) (init_delta e) <-> exp_match s e.
     Proof. intros. split; intros; apply match_iff_matchb; auto. Qed.
 
-
-    Definition accepting_dt_list : forall bs e,
-        accepting (transition_list bs (init_state e))
-        = accepting (init_state (derivative_list bs e)).
+    Lemma deriv_trans_list : forall bs e d,
+        transition_list bs (init_state e) d = derivative_list bs e.
     Proof.
-      auto.
+      induction bs; intros; auto.
+      simpl. erewrite <- IHbs. unfold init_state. unfold transition. auto.
+    Qed.
+
+    Definition accepting_dt_list : forall bs e d,
+        d = init_delta e
+        -> accepting (transition_list bs (init_state e) d) d
+          = accepting (init_state (derivative_list bs e)) d.
+    Proof.
+      intros. rewrite H.
+      rewrite deriv_trans_list. unfold init_state. auto.
     Qed.
       
     

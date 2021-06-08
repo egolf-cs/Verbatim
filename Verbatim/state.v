@@ -14,21 +14,27 @@ Module Type STATE (Import R : regex.T).
 
   Parameter State : Type.
   Parameter defState : State.
-  
-  Parameter transition : Sigma -> State -> State.
-  
-  Fixpoint transition_list (bs : list Sigma) (fsm : State) : State :=
-    match bs with
-    | [] => fsm
-    | c :: cs => transition_list cs (transition c fsm)
-    end.
-  
-  Parameter accepts : String -> State -> bool.
-  Parameter accepting : State -> bool.
 
-  Parameter accepts_nil: forall(fsm : State), accepting fsm = accepts [] fsm.
-  Parameter accepts_transition : forall cand a fsm,
-      accepts cand (transition a fsm) = accepts (a :: cand) fsm.
+  
+  Parameter Delta : Type.
+  Parameter defDelta : Delta.
+  Parameter init_delta : regex -> Delta.
+  
+  Parameter transition : Sigma -> State -> Delta -> State.
+  Parameter transition_list : list Sigma -> State -> Delta -> State.
+
+  Parameter transition_list_nil : forall fsm d,
+      transition_list [] fsm d = fsm.
+  Parameter transition_list_cons : forall bs a fsm d,
+      transition_list (a :: bs) fsm d = transition_list bs (transition a fsm d) d.
+  
+  Parameter accepts : String -> State -> Delta -> bool.
+  Parameter accepting : State -> Delta -> bool.
+
+  Parameter accepts_nil: forall(fsm : State) d, accepting fsm d = accepts [] fsm d.
+  Parameter accepts_transition : forall cand a fsm e d,
+      accepts cand (transition a fsm (init_delta e)) d
+                    = accepts (a :: cand) fsm d.
 
   Parameter init_state : regex -> State.
   Parameter init_state_inv : State -> regex.
@@ -36,15 +42,22 @@ Module Type STATE (Import R : regex.T).
   Parameter invert_init_correct : forall r s,
       exp_match s (init_state_inv (init_state r)) <-> exp_match s r.
 
-  Parameter accepting_dt_list : forall bs e,
-      accepting (transition_list bs (init_state e)) = accepting (init_state (derivative_list bs e)).
+
+  Parameter accepting_dt_list : forall bs e0 e1 e2,
+      accepting (transition_list bs (init_state e0) (init_delta e1)) (init_delta e2)
+        = accepting (init_state (derivative_list bs e0)) (init_delta e2).
   
-  Parameter accepts_matches : forall(s : String) (e : regex),
-      true = accepts s (init_state e) <-> exp_match s e.
+  Parameter accepts_matches : forall(s : String) (e e': regex),
+      true = accepts s (init_state e) (init_delta e') <-> exp_match s e.
   
 
-  (*Parameter stt_eq_dec : forall (s1 s2 : State), {s1 = s2} + {s1 <> s2}.*)
+  Parameter stt_compare : State -> State -> comparison.
 
+  Parameter stt_compare_eq : forall x y,
+      stt_compare x y = Eq <-> x = y.
+
+  Parameter stt_compare_trans : forall c x y z,
+      stt_compare x y = c -> stt_compare y z = c -> stt_compare x z = c.
 
 End STATE.
 
@@ -53,27 +66,6 @@ Module DefsFn (R : regex.T) (Ty : STATE R).
   Import Ty.
   Import R.Defs.
   Import R.Ty.
-
-    Module Export comparable.
-
-    Definition stt_compare (s1 s2 : State) : comparison :=
-      re_compare (init_state_inv s1) (init_state_inv s2).
-
-    Lemma stt_compare_eq : forall x y,
-        stt_compare x y = Eq <-> x = y.
-    Proof.
-      intros.
-    Admitted.
-
-    Lemma stt_compare_trans : forall c x y z,
-        stt_compare x y = c -> stt_compare y z = c -> stt_compare x z = c.
-    Admitted.
-
-    (*
-    Lemma stt_eq_dec : forall (x y : State), {x = y} + {x <> y}.
-    Admitted.*)
-
-  End comparable.
 
   Module State_as_UCT <: UsualComparableType.
     Definition t := State.
@@ -91,11 +83,12 @@ Module DefsFn (R : regex.T) (Ty : STATE R).
     Definition Rule : Type := Label * regex.
 
     Definition sRule : Type := Label * State.
+    Definition sdRule : Type := Label * State * Delta.
 
-    Inductive eq_models : State -> regex -> Prop :=
-    | SReq (fsm : State) (r : regex)
-           (H1 : forall(s : String), true = accepts s fsm <-> exp_match s r) :
-        eq_models fsm r.
+    Inductive eq_models : State -> Delta -> regex -> Prop :=
+    | SReq (fsm : State) (d : Delta) (r : regex)
+           (H1 : forall(s : String), true = accepts s fsm d <-> exp_match s r) :
+        eq_models fsm d r.
     
   End Coredefs.
 
@@ -122,15 +115,15 @@ Module DefsFn (R : regex.T) (Ty : STATE R).
                  -> ((length cand) <= (length p)) \/ ~(exp_match cand r)) :
         re_max_pref s r p.
 
-    Inductive no_max_pref : String -> State -> Prop :=
-    | MP0 (s : String) (fsm : State)
-          (H1 : exists(r : regex), eq_models fsm r /\ re_no_max_pref s r) :
-        no_max_pref s fsm.
+    Inductive no_max_pref : String -> State -> Delta -> Prop :=
+    | MP0 (s : String) (fsm : State) (d : Delta)
+          (H1 : exists(r : regex), eq_models fsm d r /\ re_no_max_pref s r) :
+        no_max_pref s fsm d.
 
-    Inductive max_pref : String -> State -> String -> Prop :=
-    | MP1 (s p : String) (fsm : State)
-          (H1 : exists(r : regex), eq_models fsm r /\ re_max_pref s r p) :
-        max_pref s fsm p.
+    Inductive max_pref : String -> State -> Delta -> String -> Prop :=
+    | MP1 (s p : String) (fsm : State) (d : Delta)
+          (H1 : exists(r : regex), eq_models fsm d r /\ re_max_pref s r p) :
+        max_pref s fsm d p.
 
     (* a rule is at index 0 if it's the first element of the list.
    Otherwise a rule is at index n + 1 if it's at index n of the tail of the list *)
@@ -215,7 +208,7 @@ Module DefsFn (R : regex.T) (Ty : STATE R).
     Qed.
 
     Lemma accepting_nilmatch : forall e,
-      true = accepting (init_state e)
+      true = accepting (init_state e) (init_delta e)
       <-> exp_match [] e.
     Proof.
       intros. split; intros.
@@ -224,7 +217,7 @@ Module DefsFn (R : regex.T) (Ty : STATE R).
     Qed.
 
     Lemma inv_eq_model : forall(e : regex),
-        eq_models (init_state e) e.
+        eq_models (init_state e) (init_delta e) e.
     Proof.
       intros fsm. apply SReq. intros s. rewrite accepts_matches. split; auto.
     Qed.

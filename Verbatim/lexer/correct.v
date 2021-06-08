@@ -16,7 +16,7 @@ Module CorrectFn (Import ST : state.T).
 
   Theorem lex'_sound : forall (x : nat) (Ha_x : Acc lt x) code (Ha : Acc lt (length code)) ts rest rus,
       x = length code
-      -> lex' (map init_srule rus) code Ha = (ts, rest)
+      -> lex' (map init_sdrule rus) code Ha = (ts, rest)
       -> rules_is_function rus
       -> tokenized rus code ts rest.
   Proof.
@@ -47,8 +47,7 @@ Module CorrectFn (Import ST : state.T).
       assert(A : code = (h :: t) ++ concat (map snd ts) ++ rest).
       {
         clear H1.
-        apply exists_rus_of_mpref in Heq'.
-        destruct Heq'. destruct H1.
+        apply exists_rus_of_mpref in Heq' as (r & r' & Hin & H2).
         symmetry in H2. apply max_pref_fn_splits in H2.
         subst. auto.
       }

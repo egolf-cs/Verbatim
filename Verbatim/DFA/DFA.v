@@ -25,6 +25,7 @@ Module DFAFn (TabT : Table.T).
       | Star e1 => char_set e1
       end.
      *)
+     
 
     Fixpoint regex_depth (e : regex) : nat := 
       match e with

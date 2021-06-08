@@ -13,10 +13,10 @@ From Verbatim Require Import state.
 From Verbatim Require Import Table.
 From Verbatim Require Import DFA.
 From Verbatim Require Import lexer.impl.
-From Verbatim Require Import Utils.order.
+From Verbatim Require Import Utils.Orders.
 From Verbatim Require Import Utils.asciiFinite.
 From Verbatim Require Import Utils.ascii_order.
-From Verbatim Require Import concrete.
+From Verbatim Require Import DFA.concrete.
 
 
   
@@ -32,7 +32,11 @@ Module Export ST <: state.T.
         
         Definition SigmaEnum : list Sigma := asciiEnum.
 
-        Definition Sigma_order := ascii_order.
+        Definition compareT (a1 a2 : Sigma) : comparison := ascii_order a1 a2.
+
+        Definition compareT_eq := ascii_order_eq.
+
+        Definition compareT_trans := ascii_order_trans.
         
         Lemma Sigma_finite : forall a : Sigma, In a SigmaEnum.
         Proof. apply ascii_finite. Qed.
@@ -62,6 +66,7 @@ Module Export ST <: state.T.
     
     Definition State := DFA.
     Definition defState := defDFA.
+    Definition Delta := 
     
     Definition transition (a : Sigma) (e : State) : State := DFAtransition a e.
     Definition transition_list := DFAtransition_list.

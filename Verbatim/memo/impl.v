@@ -39,49 +39,49 @@ Module ImplFn (Import MEM : memo.T).
   Module Export MPref.
          
     (** Single-rule Prefixer **)
-    Fixpoint max_pref_fn__M (M : Memo) (s : String) (state : State)
+    Fixpoint max_pref_fn__M (M : Memo) (s : String) (state : State) (d : Delta)
     : Memo * option (String * String) :=
       match s with
       (* in a regex approach, accepting := nullable *)
-      | [] => if accepting state then (M, Some ([],[])) else (M, None)
+      | [] => if accepting state d then (M, Some ([],[])) else (M, None)
       | a :: s' =>
         let
           (* in a regex approach, transition := derivative *)
-          state' := transition a state in
+          state' := transition a state d in
         let
           lookup := get_Memo M state' s' in
         let
           mpxs :=
           match lookup with
-          | None => max_pref_fn__M M s' state'
+          | None => max_pref_fn__M M s' state' d
           | Some o => (M, o)
           end
         in
 
         match mpxs with
-        | (M', None) => if (accepting state') then (M' , Some ([a], s')) else
-                         if (accepting state) then (M', Some ([], s)) else
+        | (M', None) => if (accepting state' d) then (M' , Some ([a], s')) else
+                         if (accepting state d) then (M', Some ([], s)) else
                            ((set_Memo M' state s None), None)
         | (M', Some (p, q)) => (M', Some (a :: p, q))
         end
       end.
 
     (** Multi-rule Prefixer **)
-    Definition extract_fsm_for_max__M (code : String) (sru : Memo * (Label * State))
+    Definition extract_fsm_for_max__M (code : String) (sru : Memo * (Label * State * Delta))
       : Memo * (Label * option (Prefix * Suffix)) :=
       match sru with
-        (M, (a, fsm)) =>
-        match max_pref_fn__M M code fsm with
+        (M, (a, fsm, d)) =>
+        match max_pref_fn__M M code fsm d with
           (M', o) => (M', (a, o))
         end
       end.
 
 
-    Definition max_prefs__M (Ms : list Memo) (code : String) (erules : list (Label * State))
+    Definition max_prefs__M (Ms : list Memo) (code : String) (erules : list (Label * State * Delta))
       : (list Memo) * list (Label * option (Prefix * Suffix))
       :=
         let
-          zipped := zip Ms erules
+          zipped := zip Ms erules 
         in
         let
           mapped := map (extract_fsm_for_max__M code) zipped
@@ -104,18 +104,18 @@ Module ImplFn (Import MEM : memo.T).
 
     Module Export MemoEq.
 
-      Lemma lexy_correct : forall M stt z o,
-        lexy M
+      Lemma lexy_correct : forall M stt z o d,
+        lexy M d
         -> get_Memo M stt z = Some (o)
-        -> max_pref_fn z stt = o.
+        -> max_pref_fn z stt d = o.
       Proof.
         intros. unfold lexy in H. apply H in H0. auto.
       Qed.
 
-      Theorem mpref_memo_eq_lexy_F : forall z stt o M M',
-          lexy M
-          -> max_pref_fn__M M z stt = (M', o)
-          -> max_pref_fn z stt = o.
+      Theorem mpref_memo_eq_lexy_F : forall z stt o M M' d,
+          lexy M d
+          -> max_pref_fn__M M z stt d = (M', o)
+          -> max_pref_fn z stt d = o.
       Proof.
         induction z; intros.
         - simpl in *. repeat dm; repeat inj_all; auto.
@@ -127,6 +127,8 @@ Module ImplFn (Import MEM : memo.T).
             try(apply lexy_correct in E3; auto; rewrite E3 in E4; auto);
             try(eapply IHz in H; eauto; rewrite E4 in H);
             try(discriminate).
+          + unfold lexy in H. apply H in E3. rewrite E3 in E4. discriminate.
+          + unfold lexy in H. apply H in E3. rewrite E3 in E4. discriminate.
       Qed.
 
       Lemma cons_mprefs__M : forall m Ms z a rules m' Ms' p lst,
@@ -136,8 +138,8 @@ Module ImplFn (Import MEM : memo.T).
         intros. unfold max_prefs__M in *. simpl in *. repeat dm; repeat inj_all; subst. auto.
       Qed.
 
-      Theorem mprefs_memo_F : forall z rules Ms Ms' lst,
-          lexy_list Ms
+      Theorem mprefs_memo_F : forall z (rules : list sdRule) Ms Ms' lst,
+          lexy_list (zip Ms (map snd rules))
           -> length Ms = length rules
           -> max_prefs__M Ms z rules = (Ms', lst)
           -> max_prefs z rules = lst.
@@ -146,7 +148,7 @@ Module ImplFn (Import MEM : memo.T).
         - destruct Ms;
             unfold max_prefs__M in H1; simpl in H1; repeat inj_all; subst; auto; discriminate.
         - destruct Ms; try(discriminate).
-          assert(A0 : lexy_list Ms).
+          assert(A0 : lexy_list (zip Ms (map snd rules))).
           { unfold lexy_list in *. intros. apply H. simpl. right. auto. }
           assert(A1 : length Ms = length rules).
           { simpl in H0. inv H0. auto. }
@@ -157,7 +159,7 @@ Module ImplFn (Import MEM : memo.T).
             * simpl. unfold extract_fsm_for_max. dm. subst.
               apply cons_mprefs__M in H1. eapply IHrules in A0; destruct H1; eauto.
               unfold max_prefs__M in e. simpl in e. repeat dm. repeat inj_all; subst.
-              assert(A2 : lexy m).
+              assert(A2 : lexy m d).
               { unfold lexy_list in *. apply H. simpl. left. auto. }
               eapply mpref_memo_eq_lexy_F in A2; eauto. subst. auto.
       Qed.
@@ -167,7 +169,7 @@ Module ImplFn (Import MEM : memo.T).
     Module Export Accessible.
       
       Lemma acc_helper__M : forall Ms code rules Ms' label o,
-        lexy_list Ms
+        lexy_list (zip Ms (map snd rules))
         -> length Ms = length rules
         -> max_of_prefs__M (max_prefs__M Ms code rules) = (Ms', label, o)
         -> max_of_prefs (max_prefs code rules) = (label, o).
@@ -182,7 +184,7 @@ Module ImplFn (Import MEM : memo.T).
       Lemma acc_recursive_call__M :
         forall code rules label s l suffix Ms Ms',
           Acc lt (length code)
-          -> lexy_list Ms
+          -> lexy_list (zip Ms (map snd rules))
           -> length Ms = length rules
           -> max_of_prefs__M (max_prefs__M Ms code rules) = (Ms', label, Some (s :: l, suffix))
           -> Acc lt (length suffix).
@@ -259,7 +261,7 @@ Module ImplFn (Import MEM : memo.T).
 
     Module Export LexyClosure.
 
-      Lemma nth_labels_match'' : forall m n rules Ms code Ms' l0 o ru label label',
+      Lemma nth_labels_match'' : forall m n rules Ms code Ms' l0 o ru label d label',
         m = length rules
         -> length Ms = length rules
         -> length rules = length l0
@@ -267,7 +269,7 @@ Module ImplFn (Import MEM : memo.T).
         -> n < length Ms'
         -> max_prefs__M Ms code rules = (Ms', l0)
         -> nth n l0 ([], None) = (label, o)
-        -> nth n rules ([], defState) = (label', ru)
+        -> nth n rules ([], defState, defDelta) = (label', ru, d)
         -> label = label'.
       Proof.
         induction m; intros; destruct Ms; destruct rules; destruct Ms'; destruct l0; destruct n;
@@ -282,13 +284,13 @@ Module ImplFn (Import MEM : memo.T).
           eapply IHm; eauto.
       Qed.
 
-      Lemma nth_labels_match' : forall m n rules Ms code Ms' l0 o ru label label',
+      Lemma nth_labels_match' : forall m n rules Ms code Ms' l0 o ru label d label',
           m = length rules
           -> length Ms = length rules
           -> n < length Ms'
           -> max_prefs__M Ms code rules = (Ms', l0)
           -> nth n l0 ([], None) = (label, o)
-          -> nth n rules ([], defState) = (label', ru)
+          -> nth n rules ([], defState, defDelta) = (label', ru, d)
           -> label = label'.
       Proof.
         intros.
@@ -296,27 +298,27 @@ Module ImplFn (Import MEM : memo.T).
         eapply nth_labels_match''; eauto. omega.
       Qed.
 
-      Lemma nth_labels_match : forall n rules Ms code Ms' l0 o ru label label',
+      Lemma nth_labels_match : forall n rules Ms code Ms' l0 o ru label d label',
           max_prefs__M Ms code rules = (Ms', l0)
           -> length Ms = length rules
           -> n < length Ms'
           -> nth n l0 ([], None) = (label, o)
-          -> nth n rules ([], defState) = (label', ru)
+          -> nth n rules ([], defState, defDelta) = (label', ru, d)
           -> label = label'.
       Proof.
         intros. eapply nth_labels_match'; eauto.
       Qed.
 
       Lemma mprefs__M_associates :
-        forall n rules Ms Ms' code (l0 : list (Label * option (Prefix * Suffix))) M M' o label ru,
+        forall n rules Ms Ms' code (l0 : list (Label * option (Prefix * Suffix))) M M' o label ru d,
           length Ms = length rules
           -> max_prefs__M Ms code rules = (Ms', l0)
           -> n < length Ms'
           -> nth n Ms emptyMemo = M
           -> nth n Ms' emptyMemo = M'
           -> nth n l0 ([], None) = (label, o)
-          -> nth n rules ([], defState) = (label, ru)
-          -> max_pref_fn__M M code ru = (M', o).
+          -> nth n rules ([], defState, defDelta) = (label, ru, d)
+          -> max_pref_fn__M M code ru d = (M', o).
       Proof.
         induction n; intros; destruct Ms; destruct Ms'; destruct l0; destruct rules;
           try(simpl in *; omega);
@@ -329,11 +331,11 @@ Module ImplFn (Import MEM : memo.T).
           apply lt_S_n in H1. eapply IHn; eauto. eapply cons_mprefs__M; eauto.
       Qed.
 
-      Lemma set_Memo_lexy : forall stt0 z0 o o' z stt m,
-          max_pref_fn z stt = o'
-          -> lexy m
+      Lemma set_Memo_lexy : forall stt0 z0 o o' z stt m d,
+          max_pref_fn z stt d = o'
+          -> lexy m d
           -> get_Memo (set_Memo m stt z o') stt0 z0 = Some o
-          -> max_pref_fn z0 stt0 = o.
+          -> max_pref_fn z0 stt0 d = o.
       Proof.
         intros. destruct (String_dec z z0).
         (* originally tried to find an ordering on State *)
@@ -360,10 +362,10 @@ Module ImplFn (Import MEM : memo.T).
       Qed.
 
       Lemma lexy_closure : 
-        forall code stt M o M',
-          lexy M
-          -> max_pref_fn__M M code stt = (M', o)
-          -> lexy M'.
+        forall code stt M o M' d,
+          lexy M d
+          -> max_pref_fn__M M code stt d = (M', o)
+          -> lexy M' d.
       Proof.
         induction code; intros.
         {
@@ -378,22 +380,22 @@ Module ImplFn (Import MEM : memo.T).
           - repeat inj_all. auto.
           - repeat inj_all. eapply IHcode; eauto.
           - repeat inj_all.
-            assert(max_pref_fn code (transition a stt) = None).
+            assert(max_pref_fn code (transition a stt d) d = None).
             {
               unfold lexy in H. apply H in E3. auto.
             }
-            assert(max_pref_fn (a :: code) stt = None).
+            assert(max_pref_fn (a :: code) stt d = None).
             {
               simpl. repeat dm; try discriminate.
             }
             unfold lexy. intros. clear IHcode E3 E1 E2 H0.
             eapply set_Memo_lexy; eauto.
           - repeat inj_all.
-            assert(max_pref_fn code (transition a stt) = None).
+            assert(max_pref_fn code (transition a stt d) d = None).
             {
               apply mpref_memo_eq_lexy_F in E; auto.
             }
-            assert(max_pref_fn (a :: code) stt = None).
+            assert(max_pref_fn (a :: code) stt d = None).
             {
               simpl. repeat dm; try discriminate.
             }
@@ -403,15 +405,33 @@ Module ImplFn (Import MEM : memo.T).
         }
       Qed.
 
+      Lemma length_zip_eq : forall (A B : Type) (aas : list A) (bs : list B),
+          length aas = length bs
+          -> length (zip aas bs) = length aas
+            /\ length (zip aas bs)= length bs.
+      Proof.
+        induction aas; intros; split; intros; auto.
+        - destruct bs; sis; try discriminate.
+          inv H. apply f_equal. apply IHaas. auto.
+        - destruct bs; sis; try discriminate.
+          inv H. apply f_equal. apply IHaas. auto.
+      Qed.
+
+      Lemma nth_zip : forall {A B : Type} (aas : list A) (bs : list B) n a b,
+        length aas = length bs
+        -> n < length aas
+        -> nth n (zip aas bs) (a, b) = (nth n aas a, nth n bs b).
+      Admitted.
+
       Lemma lexy_list_closure : 
         forall code rules Ms l0 Ms',
-          lexy_list Ms
+           lexy_list (zip Ms (map snd rules))
           -> length Ms = length rules
           -> max_prefs__M Ms code rules = (Ms', l0)
-          -> lexy_list Ms'.
+          ->  lexy_list (zip Ms' (map snd rules)).
       Proof.
-        intros. unfold lexy_list in *. intros M' H2.
-        apply In_nth with (d := emptyMemo) in H2. destruct H2 as [n]. destruct H2.
+        intros. unfold lexy_list in *. intros M' d H2.
+        apply In_nth with (d := (emptyMemo, defDelta)) in H2. destruct H2 as [n]. destruct H2.
         assert(L := all_lens_const Ms rules code Ms' l0 H0 H1). destruct L.
         assert(exists M, nth n Ms emptyMemo = M).
         { eexists; eauto. }
@@ -419,28 +439,62 @@ Module ImplFn (Import MEM : memo.T).
         assert(exists label o, nth n l0 ([], None) = (label, o)).
         { destruct (nth n l0 ([], None)). eexists; eauto. }
         destruct H7 as [label]. destruct H7 as [o].
-        assert(exists label' ru, nth n rules ([], defState) = (label', ru)).
-        { destruct (nth n rules ([], defState)). eexists; eauto. }
-        destruct H8 as [label']. destruct H8 as [ru].
+        assert(exists label' ru d, nth n rules ([], defState, defDelta) = (label', ru, d)).
+        { destruct (nth n rules ([], defState, defDelta)). destruct p.
+          repeat eexists. }
+        destruct H8 as [label']. destruct H8 as [ru]. destruct H8 as [d0].
         assert(label = label').
-        { eapply nth_labels_match; eauto. }
+        {
+          eapply nth_labels_match; eauto.
+          rewrite <- H4 in H0.
+          rewrite <- map_length with (f := snd) in H0. apply length_zip_eq in H0.
+          destruct H0. rewrite H0 in H2. auto.
+        }
         rewrite H9 in *. clear H9.
+        assert (H0' := H0).
         eapply mprefs__M_associates in H0; eauto.
-
-        assert(Hlen : length Ms = length Ms').
-        { omega. }
-        
-        rewrite <- Hlen in H2.
-        apply nth_In with (d:=emptyMemo) in H2. rewrite H6 in H2. apply H in H2.
-        eapply lexy_closure; eauto.
-      Qed.
+        - assert (H2' := H2).
+          apply nth_In with (d := (emptyMemo, defDelta)) in H2. rewrite H3 in H2.
+          assert (d0 = d).
+          {
+            rewrite nth_zip in H3; auto.
+            - inv H3.
+              assert (forall (xs : Label), snd (xs, defState, defDelta) = defDelta).
+              { intros. auto. }
+              specialize (H3 []). rewrite <- H3.
+              rewrite map_nth.
+              try rewrite H8. (* why didn't that work? *)
+              admit.
+            - rewrite H4. rewrite map_length. auto.
+            - rewrite <- H4 in H0'. symmetry in H0'.
+              erewrite <- map_length in H0'. symmetry in H0'.  apply length_zip_eq in H0'.
+              destruct H0'. rewrite <- H9. eauto.
+          }
+          assert (nth n Ms' emptyMemo = M').
+          { 
+            rewrite nth_zip in H3.
+            - inv H3. auto.
+            - rewrite H4. rewrite map_length. auto.
+            - rewrite <- H4 in H0'. symmetry in H0'.
+              erewrite <- map_length in H0'. symmetry in H0'.  apply length_zip_eq in H0'.
+              destruct H0'. rewrite <- H10. eauto.
+          }
+          rewrite H10 in *. rewrite H9 in *. clear H9 H10.
+          (* H8 /\ H6 -> nth n (zip Ms (map snd rules)) _ = (M, d) -> In (M, d) _ -> lexy M d *)
+          assert(In (M', d) (zip Ms (map snd rules))).
+          { admit. }
+          apply H. auto.
+        - rewrite <- H4 in H0.
+          rewrite <- map_length with (f := snd) in H0. apply length_zip_eq in H0.
+          destruct H0. rewrite H0 in H2. auto.
+      Admitted.
 
       Lemma lexy_recursive_call_gen :
         forall code rules Ms label o Ms',
-          lexy_list Ms
+          lexy_list (zip Ms (map snd rules))
           -> length Ms = length rules
           -> max_of_prefs__M (max_prefs__M Ms code rules) = (Ms', label, o)
-          -> lexy_list Ms'.
+          -> lexy_list (zip Ms' (map snd rules)).
       Proof.
         intros. destruct (max_prefs__M Ms code rules) eqn:E.
         assert(l = Ms').
@@ -448,15 +502,15 @@ Module ImplFn (Import MEM : memo.T).
           simpl in H1. repeat dm. injection H1; auto.
         }
         subst. clear H1.
-        eapply lexy_list_closure in H; eauto.
+        eapply lexy_list_closure; eauto.
       Qed.
 
       Lemma lexy_recursive_call :
         forall code rules Ms label s l suffix Ms',
-          lexy_list Ms
+          lexy_list (zip Ms (map snd rules))
           -> length Ms = length rules
           -> max_of_prefs__M (max_prefs__M Ms code rules) = (Ms', label, Some (s :: l, suffix))
-          -> lexy_list Ms'.
+          -> lexy_list (zip Ms' (map snd rules)).
         intros. eapply lexy_recursive_call_gen in H; eauto.
       Qed.
 
@@ -468,10 +522,10 @@ Module ImplFn (Import MEM : memo.T).
 
     Fixpoint lex'__M
              (Ms : list Memo)
-             (rules : list (sRule))
+             (rules : list (sdRule))
              (code : String)
              (Ha : Acc lt (length code))
-             (Hlexy : lexy_list Ms)
+             (Hlexy : lexy_list (zip Ms (map snd rules)))
              (Hlen : length Ms = length rules)
              {struct Ha} : (list Memo) * (list Token) * String :=
       match max_of_prefs__M (max_prefs__M Ms code rules) as mpref'
@@ -491,26 +545,26 @@ Module ImplFn (Import MEM : memo.T).
           end
       end eq_refl.
 
-    Definition init_srule (rule : Rule) : sRule :=
+    Definition init_sdrule (rule : Rule) : sdRule :=
       match rule with
-      | (label, re) => (label, init_state re)
+      | (label, re) => (label, init_state re, init_delta re)
       end.
 
-    Definition init_Memos (srules : list sRule) : list Memo :=
-      (map (fun x => emptyMemo) srules).
+    Definition init_Memos (sdrules : list sdRule) : list Memo :=
+      (map (fun x => emptyMemo) sdrules).
 
-    Lemma lexy_list_cons : forall M Ms,
-        lexy M -> lexy_list Ms -> lexy_list (M :: Ms).
+    Lemma lexy_list_cons : forall M Mds d,
+        lexy M d -> lexy_list Mds -> lexy_list ((M,d) :: Mds).
     Proof.
       intros. unfold lexy_list in *. intros. sis. destruct H1.
-      - subst. auto.
+      - inv H1. auto.
       - apply H0; auto.
     Qed.
 
-    Lemma init_Memos_lexy : forall srules,
-        lexy_list (init_Memos srules).
+    Lemma init_Memos_lexy : forall sdrules,
+        lexy_list (zip (init_Memos sdrules) (map snd sdrules)).
     Proof.
-      intros. induction srules.
+      intros. induction sdrules.
       - simpl. unfold lexy_list. intros. contradiction.
       - simpl. apply lexy_list_cons; auto. unfold lexy. intros.
         rewrite correct_emptyMemo in H. discriminate.
@@ -524,7 +578,7 @@ Module ImplFn (Import MEM : memo.T).
 
     Definition lex__M (rules : list Rule) (code : String) : list Token * String :=
       let
-        srules := map init_srule rules
+        srules := map init_sdrule rules
       in
       match
         lex'__M (init_Memos srules) srules code

@@ -1,5 +1,6 @@
 open Instance
 open L.Lex
+open L.Defs
 
 let to_string chars =
   let buf = Buffer.create 16 in
@@ -59,14 +60,15 @@ match n with
 | 0 -> []
 | _ -> x :: (n_copies (n-1) x)
 
-let srus = map init_srule rus
+(* useful for separating DFA build time from lex time; negligible for now *)
+let srus = map init_sdrule rus
 let lex_pre = lex'__M (init_Memos srus) srus
 (* let lex_pre = lex' srus *)
-let () = Printf.printf "%.5f\n" (time (map init_srule) rus)
+(* let () = Printf.printf "%.5f\n" (time (map init_sdrule) rus) *)
 
 let evaluate fname =
   let code = to_chars (read_whole_file ("data/"^fname)) in
-  let codes = n_copies 5 code in
+  let codes = n_copies 1 code in
   let ts = map (time lex_pre) codes in
   let rest = (to_string (snd (lex_pre code))) in
   let rest_len = (String.length rest) in
