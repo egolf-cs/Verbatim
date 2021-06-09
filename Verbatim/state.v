@@ -12,21 +12,24 @@ Module Type STATE (Import R : regex.T).
 
   Import R.Ty.
 
-  Parameter State : Type.
-  Parameter defState : State.
+  Parameter Pointer : Type.
+  Parameter defPointer : Pointer.
+  Parameter Delta : Type.
+  Parameter defDelta : Delta.
+  Definition State : Type := prod Pointer Delta.
+  Definition defState : State := (defPointer, defDelta).
   
   Parameter transition : Sigma -> State -> State.
-  
-  Fixpoint transition_list (bs : list Sigma) (fsm : State) : State :=
-    match bs with
-    | [] => fsm
-    | c :: cs => transition_list cs (transition c fsm)
-    end.
+  Parameter transition_list : list Sigma -> State -> State.
+  Parameter transition_list_nil : forall fsm,
+      transition_list [] fsm = fsm.
+  Parameter transition_list_cons : forall bs a fsm,
+      transition_list (a :: bs) fsm = transition_list bs (transition a fsm).
   
   Parameter accepts : String -> State -> bool.
   Parameter accepting : State -> bool.
 
-  Parameter accepts_nil: forall(fsm : State), accepting fsm = accepts [] fsm.
+  Parameter accepts_nil: forall fsm, accepting fsm = accepts [] fsm.
   Parameter accepts_transition : forall cand a fsm,
       accepts cand (transition a fsm) = accepts (a :: cand) fsm.
 
@@ -37,13 +40,19 @@ Module Type STATE (Import R : regex.T).
       exp_match s (init_state_inv (init_state r)) <-> exp_match s r.
 
   Parameter accepting_dt_list : forall bs e,
-      accepting (transition_list bs (init_state e)) = accepting (init_state (derivative_list bs e)).
+      accepting (transition_list bs (init_state e))
+      = accepting (init_state (derivative_list bs e)).
   
   Parameter accepts_matches : forall(s : String) (e : regex),
       true = accepts s (init_state e) <-> exp_match s e.
   
+  Parameter pointer_compare : Pointer -> Pointer -> comparison.
 
-  (*Parameter stt_eq_dec : forall (s1 s2 : State), {s1 = s2} + {s1 <> s2}.*)
+  Parameter pointer_compare_eq : forall x y,
+      pointer_compare x y = Eq <-> x = y.
+
+  Parameter pointer_compare_trans : forall c x y z,
+      pointer_compare x y = c -> pointer_compare y z = c -> pointer_compare x z = c.
 
 
 End STATE.
@@ -54,33 +63,12 @@ Module DefsFn (R : regex.T) (Ty : STATE R).
   Import R.Defs.
   Import R.Ty.
 
-    Module Export comparable.
-
-    Definition stt_compare (s1 s2 : State) : comparison :=
-      re_compare (init_state_inv s1) (init_state_inv s2).
-
-    Lemma stt_compare_eq : forall x y,
-        stt_compare x y = Eq <-> x = y.
-    Proof.
-      intros.
-    Admitted.
-
-    Lemma stt_compare_trans : forall c x y z,
-        stt_compare x y = c -> stt_compare y z = c -> stt_compare x z = c.
-    Admitted.
-
-    (*
-    Lemma stt_eq_dec : forall (x y : State), {x = y} + {x <> y}.
-    Admitted.*)
-
-  End comparable.
-
-  Module State_as_UCT <: UsualComparableType.
-    Definition t := State.
-    Definition compare := stt_compare.
-    Definition compare_eq := stt_compare_eq.
-    Definition compare_trans := stt_compare_trans.
-  End State_as_UCT.
+  Module Pointer_as_UCT <: UsualComparableType.
+    Definition t := Pointer.
+    Definition compare := pointer_compare.
+    Definition compare_eq := pointer_compare_eq.
+    Definition compare_trans := pointer_compare_trans.
+  End Pointer_as_UCT.
   
   Module Export Coredefs.
     

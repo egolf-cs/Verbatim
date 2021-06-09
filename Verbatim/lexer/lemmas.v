@@ -154,8 +154,9 @@ Module LemmasFn (Import ST : state.T).
       transition a (transition_list bs fsm)
       = transition_list (bs ++ [a]) fsm.
   Proof.
-    induction bs; intros; auto.
-    simpl. apply IHbs.
+    induction bs; intros; auto. 
+    - sis. rewrite transition_list_cons. repeat rewrite transition_list_nil. auto.
+    - sis. rewrite transition_list_cons. rewrite IHbs. sis. rewrite transition_list_cons. auto.
   Qed.
 
   
@@ -165,13 +166,6 @@ Module LemmasFn (Import ST : state.T).
   Proof.
     induction bs; intros; auto.
     simpl. apply IHbs.
-  Qed.
-
-
-  Lemma transition_cons : forall bs a fsm,
-      transition_list (a :: bs) fsm = transition_list bs (transition a fsm).
-  Proof.
-    auto.
   Qed.
 
   
@@ -205,7 +199,9 @@ Module LemmasFn (Import ST : state.T).
   Lemma dbl_trans_lst : forall a b e,
     transition a (transition b (init_state e))
     = transition_list [b; a] (init_state e).
-  Proof. auto. Qed.
+  Proof. 
+    intros. repeat rewrite transition_list_cons. rewrite transition_list_nil. auto.
+  Qed.
 
   Lemma dbl_deriv_lst : forall s0 a0 e,
       derivative s0 (derivative a0 e)
@@ -221,20 +217,24 @@ Module LemmasFn (Import ST : state.T).
       max_pref_fn code (init_state (derivative_list bs e)).
   Proof.
     induction code; induction bs; intros.
-    - split; auto. simpl. repeat dm.
+    - split; auto; simpl; repeat dm.
       + rewrite accepting_dt in *. rewrite E in E0. discriminate.
       + rewrite accepting_dt in *. rewrite E in E0. discriminate.
+      + rewrite transition_list_nil in *. rewrite E in E0. discriminate.
+      + rewrite transition_list_nil in *. rewrite E in E0. discriminate.
     - split.
       + simpl. repeat dm.
         * rewrite accepting_dt in *. rewrite E in E0. discriminate.
         * rewrite accepting_dt in *. rewrite E in E0. discriminate.
       + simpl. repeat dm.
-        * rewrite <- transition_cons in E.
+        * rewrite transition_list_cons in E.
           rewrite <- derivative_list_cons in *.
-          rewrite accepting_dt_list in *. rewrite E in *. discriminate.
-        * rewrite <- transition_cons in E.
+          rewrite <- accepting_dt_list in *. rewrite transition_list_cons in *.
+          rewrite E in *. discriminate.
+        * rewrite transition_list_cons in E.
           rewrite <- derivative_list_cons in *.
-          rewrite accepting_dt_list in *. rewrite E in *. discriminate.
+          rewrite <- accepting_dt_list in *. rewrite transition_list_cons in *.
+          rewrite E in *. discriminate.
     - assert(IHcode0 : forall (e : regex) (a : Sigma),
            max_pref_fn code (transition a (init_state e)) =
            max_pref_fn code (init_state (derivative a e))).
@@ -260,7 +260,7 @@ Module LemmasFn (Import ST : state.T).
                     accepting (transition a (init_state (derivative a0 e)))
                     = accepting (transition_list [a] (init_state (derivative a0 e)))
                   ).
-                { auto. }
+                { rewrite transition_list_cons. rewrite transition_list_nil. auto. }
                 rewrite H in *. clear H.
                 rewrite accepting_dt_list in *.
                 simpl in *. rewrite E1 in *. discriminate.
@@ -288,7 +288,7 @@ Module LemmasFn (Import ST : state.T).
              rewrite accepting_dt_list in *.
              rewrite E4 in *. discriminate.
           -- rewrite accepting_dt in *. rewrite E5 in *. discriminate.       
-      + unfold transition_list. unfold derivative_list. auto.
+      + rewrite transition_list_nil. unfold derivative_list. auto.
     - assert(IHcode0 : forall (e : regex) (a : Sigma),
            max_pref_fn code (transition a (init_state e)) =
            max_pref_fn code (init_state (derivative a e))).
@@ -313,21 +313,23 @@ Module LemmasFn (Import ST : state.T).
         * destruct p. destruct p.
           -- simpl in E. simpl. repeat dm; try(discriminate).
              ++ rewrite IHcode0 in *.
-                rewrite <- transition_cons in *.
+                rewrite transition_list_cons in *.
                 rewrite <- derivative_list_cons in *.
                 rewrite transition_list_hop in *.
                 rewrite deriv_list_hop in *.
-                rewrite IHcode1 in *. rewrite E3 in *. discriminate.
+                rewrite <- IHcode1 in *. rewrite <- transition_list_cons in *. sis.
+                rewrite E3 in *. discriminate.
              ++ rewrite accepting_dt in *.
-                rewrite <- transition_cons in *.
+                rewrite transition_list_cons in *.
                 rewrite <- derivative_list_cons in *.
                 rewrite transition_list_hop in *.
                 rewrite deriv_list_hop in *.
-                rewrite IHcode1 in *.
-                rewrite accepting_dt_list in *. rewrite E4 in *. discriminate.
-             ++ rewrite <- transition_cons in *.
+                rewrite <- accepting_dt_list in *. sis. rewrite transition_list_cons in *.
+                rewrite E4 in *. discriminate.
+             ++ rewrite transition_list_cons in *.
                 rewrite <- derivative_list_cons in *.
-                rewrite accepting_dt_list in *. rewrite E5 in *. discriminate.
+                rewrite <- accepting_dt_list in *. rewrite transition_list_cons in *.
+                rewrite E5 in *. discriminate.
           -- simpl in E. simpl.
              repeat dm; try(discriminate);
                try(injection E; intros; subst;
@@ -340,36 +342,43 @@ Module LemmasFn (Import ST : state.T).
                 rewrite <- transition_cons in E0; rewrite IHcode1 in E0;
                 rewrite derivative_list_cons in E0; rewrite <- deriv_list_hop in E0;
                 rewrite E0 in E2; injection E2; intros; subst; reflexivity).
-             ++ clear E0 E2 E E4.
-                rewrite accepting_dt in E3.
+             ++ rewrite IHcode0 in E2.
                 rewrite transition_list_hop in *.
                 rewrite deriv_list_hop in *.
-                rewrite <- transition_cons in *.
-                rewrite <- derivative_list_cons in *.
-                rewrite accepting_dt_list in *. rewrite E3 in *. discriminate.             
-             ++ clear E0 E2 E E4.
-                rewrite accepting_dt in E3.
+                subst. inv E. rewrite IHcode1 in *. sis. rewrite E0 in E2. inv E2. auto.
+             ++ rewrite IHcode0 in E2.
                 rewrite transition_list_hop in *.
                 rewrite deriv_list_hop in *.
-                rewrite <- transition_cons in *.
-                rewrite <- derivative_list_cons in *.
-                rewrite accepting_dt_list in *. rewrite E3 in *. discriminate.                
+                subst. inv E. rewrite IHcode1 in *. sis. rewrite E0 in E2. inv E2.
+             ++ rewrite IHcode0 in E2.
+                rewrite transition_list_hop in *.
+                rewrite deriv_list_hop in *.
+                subst. inv E. rewrite IHcode1 in *. sis. rewrite E0 in E2. inv E2.
+             ++ rewrite IHcode0 in E2.
+                rewrite transition_list_hop in *.
+                rewrite deriv_list_hop in *.
+                subst. inv E. rewrite IHcode1 in *. sis. rewrite E0 in E2. inv E2.
+             ++ rewrite IHcode0 in E2.
+                rewrite transition_list_hop in *.
+                rewrite deriv_list_hop in *.
+                subst. inv E. rewrite IHcode1 in *. sis. rewrite E0 in E2. inv E2.
+             ++ rewrite accepting_dt in *. rewrite transition_list_hop in *.
+                rewrite accepting_dt_list in *. rewrite <- app_comm_cons in *.
+                rewrite deriv_list_hop in *. sis. rewrite E1 in E3. discriminate.
+             ++ rewrite accepting_dt in *. rewrite transition_list_hop in *.
+                rewrite accepting_dt_list in *. rewrite <- app_comm_cons in *.
+                rewrite deriv_list_hop in *. sis. rewrite E1 in E3. discriminate.
         * simpl in E. simpl. repeat dm; try(discriminate).
-          -- rewrite IHcode0 in *; rewrite transition_list_hop in E0;
-               rewrite <- transition_cons in E0; rewrite IHcode1 in E0;
-                 rewrite derivative_list_cons in E0; rewrite <- deriv_list_hop in E0.
-             rewrite E0 in E3. discriminate.
-          -- clear E0 E3 E E2.
-                rewrite accepting_dt in E4.
-                rewrite transition_list_hop in *.
-                rewrite deriv_list_hop in *.
-                rewrite <- transition_cons in *.
-                rewrite <- derivative_list_cons in *.
-                rewrite accepting_dt_list in *. rewrite E4 in *. discriminate.  
-          -- clear E0 E1 E E3 E4.
-             rewrite <- transition_cons in *.
-             rewrite <- derivative_list_cons in *.
-             rewrite accepting_dt_list in *. rewrite E5 in *. discriminate.  
+          -- rewrite IHcode0 in E3.
+             rewrite transition_list_hop in *.
+             rewrite deriv_list_hop in *.
+             subst. inv E. rewrite IHcode1 in *. sis. rewrite E0 in *. inv E3.
+          -- rewrite accepting_dt in *. rewrite transition_list_hop in *.
+             rewrite accepting_dt_list in *. rewrite <- app_comm_cons in *.
+             rewrite deriv_list_hop in *. sis. rewrite E1 in *. discriminate.
+          -- rewrite accepting_dt in *. rewrite transition_list_hop in *.
+             rewrite accepting_dt_list in *. rewrite <- app_comm_cons in *.
+             rewrite deriv_list_hop in *. sis. rewrite E2 in *. discriminate.  
   Qed.
         
   

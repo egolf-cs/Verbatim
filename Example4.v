@@ -63,25 +63,59 @@ Module Export MEM <: memo.T.
     Module Export Ty <: STATE R.
 
       Module Export D := DFAFn TabT. 
+
+      Definition Pointer : Type := regex.
+      Definition defPointer : Pointer := EmptySet.
+      Definition Delta : Type := TabT.TabTy.Table * TabT.R.Defs.reFS.t.
+      Definition defDelta := (TabT.TabTy.emptyTable, TabT.TabTy.reFS.empty).
+      Definition State := prod Pointer Delta.
+      Definition defState := (defPointer, defDelta).
       
-      Definition State := DFA.
-      Definition defState := defDFA.
+      Definition transition (a : Sigma) (e : State) : State :=
+        match e with
+          (x, (y, z)) =>
+          match DFAtransition a (x,y,z) with
+            (x',y',z') => (x',(y',z'))
+          end
+        end.
+      Definition transition_list (bs : list Sigma) (e : State) : State :=
+        match e with
+          (x, (y, z)) =>
+          match DFAtransition_list bs (x,y,z) with
+            (x',y',z') => (x',(y',z'))
+          end
+        end.
+      Lemma transition_list_nil : forall fsm,
+          transition_list [] fsm = fsm.
+      Admitted.
+      Lemma transition_list_cons : forall bs a fsm,
+          transition_list (a :: bs) fsm = transition_list bs (transition a fsm).
+      Admitted.
       
-      Definition transition (a : Sigma) (e : State) : State := DFAtransition a e.
-      Definition transition_list := DFAtransition_list.
-      
-      Definition accepts (z : String) (e : State) : bool := DFAaccepts z e.
-      Definition accepting := DFAaccepting.
+      Definition accepts (s : String) (e : State) : bool :=
+        match e with
+          (x, (y, z)) => DFAaccepts s (x, y, z)
+        end.
+      Definition accepting (e : State) :=
+        match e with
+          (x, (y, z)) => DFAaccepting (x, y, z)
+        end.
 
       Lemma accepts_nil: forall(fsm : State), accepting fsm = accepts [] fsm.
       Proof. intros fsm. reflexivity. Qed.
 
       Lemma accepts_transition : forall cand a fsm,
           accepts cand (transition a fsm) = accepts (a :: cand) fsm.
-      Proof. auto. Qed.
+      Proof. Admitted.
 
-      Definition init_state (r : regex) : State := regex2dfa r.
-      Definition init_state_inv (r : State) : regex := dfa2regex r.
+      Definition init_state (r : regex) : State :=
+        match regex2dfa r with
+          (x, y, z) => (x, (y, z))
+        end.
+      Definition init_state_inv (r : State) : regex :=
+        match r with
+          (x, (y, z)) => dfa2regex (x, y, z)
+        end.
       
       Lemma invert_init_correct : forall r s,
           exp_match s (init_state_inv (init_state r)) <-> exp_match s r.
@@ -98,9 +132,7 @@ Module Export MEM <: memo.T.
       Definition accepting_dt_list : forall bs e,
           accepting (transition_list bs (init_state e))
           = accepting (init_state (derivative_list bs e)).
-      Proof.
-        intros. apply DFAaccepting_dt_list.
-      Qed.
+      Proof. Admitted.
 
       (*Lemma stt_dec : forall (s1 s2 : State), {s1 = s2} + {s1 <> s2}.
       Proof.
@@ -113,6 +145,16 @@ Module Export MEM <: memo.T.
           + clear a p b t. decide equality.
       Admitted.*)
 
+      Definition pointer_compare (s1 s2 : Pointer) : comparison :=
+        re_compare s1 s2.
+
+      Lemma pointer_compare_eq : forall x y,
+          pointer_compare x y = Eq <-> x = y.
+      Proof. apply re_compare_eq. Qed.
+
+      Lemma pointer_compare_trans : forall c x y z,
+          pointer_compare x y = c -> pointer_compare y z = c -> pointer_compare x z = c.
+      Proof. apply re_compare_trans. Qed.
       
     End Ty.
     

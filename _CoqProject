@@ -23,6 +23,5 @@ Verbatim/memo/concrete3.v
 
 Verbatim/memo/memo.v
 Verbatim/memo/impl.v
-Verbatim/memo/correctness.v
 
 Example4.v
