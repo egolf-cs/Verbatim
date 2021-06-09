@@ -19,7 +19,7 @@ Module ImplFn (Import MEM : memo.T).
 
   Module Export Utils.
 
-    Fixpoint zip {A B : Type} (a: list A) (b: list B) : list (A * B) :=
+    Fixpoint zip {A B : Type} (a : list A) (b: list B) : list (A * B) :=
       match a, b with
       | ha :: ta, hb :: tb => (ha,hb) :: (zip ta tb)
       | _, _ => []
@@ -33,6 +33,22 @@ Module ImplFn (Import MEM : memo.T).
         | (ta, tb) => (ha :: ta, hb :: tb)
         end
       end.
+
+    Lemma len_zip_L : forall {X Y : Type} (xs : list X) (ys : list Y),
+        length xs = length ys
+        -> length (zip xs ys) = length xs.
+    Admitted.
+
+    Lemma len_zip_R : forall {X Y : Type} (xs : list X) (ys : list Y),
+        length xs = length ys
+        -> length (zip xs ys) = length xs.
+    Admitted.
+
+    Lemma nth_zip : forall n {X Y : Type} (xs : list X) (ys : list Y) dx dy,
+        nth n (zip xs ys) (dx, dy) = (nth n xs dx, nth n ys dy).
+    Admitted.
+
+    Definition ssnd {A B C : Type} (x : A * (B * C)) := snd (snd x).
 
   End Utils.
     
@@ -117,22 +133,20 @@ Module ImplFn (Import MEM : memo.T).
           -> max_pref_fn__M M z (pnt, d) = (M', o)
           -> max_pref_fn z (pnt, d) = o.
       Proof.
-        (*
         induction z; intros.
         - simpl in *. repeat dm; repeat inj_all; auto.
         - simpl in *.
-          repeat dm; repeat inj_all; auto;
-            try(eapply lexy_correct in H; eauto; rewrite E3 in H);
-            try(eapply IHz in H; eauto; rewrite E3 in H);
-            try(injection H; intros; subst; auto);
-            try(apply lexy_correct in E3; auto; rewrite E3 in E4; auto);
-            try(eapply IHz in H; eauto; rewrite E4 in H);
-            try(discriminate).
-          + unfold lexy in H. apply H in E2. rewrite E3 in E4. discriminate.
-          + unfold lexy in H. apply H in E3. rewrite E3 in E4. discriminate.
-      Qed.*)
-      Admitted.
-
+          repeat dm;
+            try(eapply lexy_correct in H; eauto; unfold fst in H; dm; apply transition_Delta in E5;
+                repeat inj_all; rewrite H in *; repeat inj_all; auto; try discriminate);
+            try(eapply lexy_correct in H; eauto; unfold fst in H; dm; apply transition_Delta in E6;
+                repeat inj_all; rewrite H in *; repeat inj_all; auto; try discriminate);
+            try (destruct (transition a (pnt, d)) eqn:H1; apply transition_Delta in H1;
+                 repeat inj_all; apply IHz in E; auto; rewrite E in *;
+                 repeat inj_all; auto; discriminate).
+          repeat inj_all. auto.
+      Qed.
+      
       Lemma cons_mprefs__M : forall m Ms z a rules m' Ms' p lst,
           max_prefs__M (m :: Ms) z (a :: rules) = (m' :: Ms', p :: lst)
           -> max_prefs__M [m] z [a] = ([m'], [p]) /\ max_prefs__M Ms z rules = (Ms', lst).
@@ -141,18 +155,16 @@ Module ImplFn (Import MEM : memo.T).
       Qed.
 
       Theorem mprefs_memo_F : forall z rules Ms Ms' lst,
-          lexy_list (zip Ms (map (fun x => snd (snd x)) rules))
+          lexy_list (zip Ms (map ssnd rules))
           -> length Ms = length rules
           -> max_prefs__M Ms z rules = (Ms', lst)
           -> max_prefs z rules = lst.
       Proof.
-      Admitted.
-        (*
         induction rules; intros.
         - destruct Ms;
             unfold max_prefs__M in H1; simpl in H1; repeat inj_all; subst; auto; discriminate.
         - destruct Ms; try(discriminate).
-          assert(A0 : lexy_list Ms).
+          assert(A0 : lexy_list (zip Ms (map ssnd rules))).
           { unfold lexy_list in *. intros. apply H. simpl. right. auto. }
           assert(A1 : length Ms = length rules).
           { simpl in H0. inv H0. auto. }
@@ -163,34 +175,33 @@ Module ImplFn (Import MEM : memo.T).
             * simpl. unfold extract_fsm_for_max. dm. subst.
               apply cons_mprefs__M in H1. eapply IHrules in A0; destruct H1; eauto.
               unfold max_prefs__M in e. simpl in e. repeat dm. repeat inj_all; subst.
-              assert(A2 : lexy m).
+              destruct p0.
+              assert(A2 : lexy m d).
               { unfold lexy_list in *. apply H. simpl. left. auto. }
               eapply mpref_memo_eq_lexy_F in A2; eauto. subst. auto.
-      Qed.*)
+      Qed.
 
     End MemoEq.
 
     Module Export Accessible.
       
       Lemma acc_helper__M : forall Ms code rules Ms' label o,
-        lexy_list (zip Ms (map (fun x => snd (snd x)) rules))
+        lexy_list (zip Ms (map ssnd rules))
         -> length Ms = length rules
         -> max_of_prefs__M (max_prefs__M Ms code rules) = (Ms', label, o)
         -> max_of_prefs (max_prefs code rules) = (label, o).
       Proof.
-      Admitted.
-        (*
         intros. destruct (max_prefs code rules) eqn:E; destruct (max_prefs__M Ms code rules) eqn:E1.
         - simpl in *. repeat dm; repeat inj_all; subst. eapply mprefs_memo_F in H; eauto.
           + rewrite E in H. subst. simpl in E0. auto.
         - simpl in *. repeat dm; repeat inj_all; subst. eapply mprefs_memo_F in H; eauto.
           rewrite E in H. subst. simpl in E0. auto.
-      Qed.*)
+      Qed.
 
       Lemma acc_recursive_call__M :
         forall code rules label s l suffix Ms Ms',
           Acc lt (length code)
-          -> lexy_list (zip Ms (map (fun x => snd (snd x)) rules))
+          -> lexy_list (zip Ms (map ssnd rules))
           -> length Ms = length rules
           -> max_of_prefs__M (max_prefs__M Ms code rules) = (Ms', label, Some (s :: l, suffix))
           -> Acc lt (length suffix).
@@ -337,95 +348,92 @@ Module ImplFn (Import MEM : memo.T).
           apply lt_S_n in H1. eapply IHn; eauto. eapply cons_mprefs__M; eauto.
       Qed.
 
-      Lemma set_Memo_lexy : forall stt0 z0 o o' z stt m,
-          max_pref_fn z stt = o'
-          -> lexy m (snd stt)
-          -> get_Memo (set_Memo m (fst stt) z o') (fst stt0) z0 = Some o
-          -> max_pref_fn z0 stt0 = o.
+      Lemma set_Memo_lexy : forall z z0 o o' p p0 d m,
+          max_pref_fn z (p, d) = o'
+          -> lexy m d
+          -> get_Memo (set_Memo m p z o') p0 z0 = Some o
+          -> max_pref_fn z0 (p0, d) = o.
       Proof.
-      Admitted.
-        (*
         intros. destruct (String_dec z z0).
         (* originally tried to find an ordering on State *)
         (* realized that was too much, tried to find decidable equality *)
         (* seems like even that is too much, considering that 
            the Table and final states doesn't change, only the state-pointer *)
-        - subst. destruct (stt_compare stt stt0) eqn:E.
-          + apply stt_compare_eq in E. subst. rewrite correct_Memo in H1. inv H1. auto.
-          + assert(stt <> stt0).
-            { intros C. apply stt_compare_eq in C. rewrite C in *. discriminate. }
+        - subst. destruct (pointer_compare p p0) eqn:E.
+          + apply pointer_compare_eq in E. subst. rewrite correct_Memo in H1. inv H1. auto.
+          + assert(p <> p0).
+            { intros C. apply pointer_compare_eq in C. rewrite C in *. discriminate. }
             clear E.
-            assert(stt0 <> stt \/ z0 <> z0); auto.
+            assert(p0 <> p \/ z0 <> z0); auto.
             eapply correct_Memo_moot in H2; eauto. rewrite H2 in H1.
             eapply lexy_correct; eauto.
-          + assert(stt <> stt0).
-            { intros C. apply stt_compare_eq in C. rewrite C in *. discriminate. }
+          + assert(p <> p0).
+            { intros C. apply pointer_compare_eq in C. rewrite C in *. discriminate. }
             clear E.
-            assert(stt0 <> stt \/ z0 <> z0); auto.
+            assert(p0 <> p \/ z0 <> z0); auto.
             eapply correct_Memo_moot in H2; eauto. rewrite H2 in H1.
             eapply lexy_correct; eauto.
-        - assert(stt0 <> stt \/ z0 <> z); auto.
+        - assert(p0 <> p \/ z0 <> z); auto.
           clear n. eapply correct_Memo_moot in H2; eauto. rewrite H2 in H1.
           eapply lexy_correct; eauto.
-      Qed.*)
+      Qed.
 
       Lemma lexy_closure : 
-        forall code stt M o M',
-          lexy M (snd stt)
-          -> max_pref_fn__M M code stt = (M', o)
-          -> lexy M' (snd stt).
+        forall code p d M o M',
+          lexy M d
+          -> max_pref_fn__M M code (p,d) = (M', o)
+          -> lexy M' d.
       Proof.
-      Admitted.
-        (*
         induction code; intros.
         {
           simpl in H0. dm; inv H0; auto.
         }
         {
-          simpl in H0. repeat dm.
-          - repeat inj_all. auto.
-          - repeat inj_all. eapply IHcode; eauto.
-          - repeat inj_all. auto.
-          - repeat inj_all. eapply IHcode; eauto.
-          - repeat inj_all. auto.
-          - repeat inj_all. eapply IHcode; eauto.
+          simpl in H0. repeat dm;
+          try(repeat inj_all; auto);
+          try(repeat inj_all; 
+            destruct (transition a (p,d)) eqn:H2; apply transition_Delta in H2; subst;
+            eapply IHcode; eauto; reflexivity).
           - repeat inj_all.
-            assert(max_pref_fn code (transition a stt) = None).
+            assert(max_pref_fn code (transition a (p,d)) = None).
             {
-              unfold lexy in H. apply H in E3. auto.
+              unfold lexy in H. apply H in E3. auto. destruct (transition a (p, d)) eqn:E4.
+              sis. apply transition_Delta in E4. subst. auto.
             }
-            assert(max_pref_fn (a :: code) stt = None).
+            assert(max_pref_fn (a :: code) (p,d) = None).
             {
               simpl. repeat dm; try discriminate.
             }
             unfold lexy. intros. clear IHcode E3 E1 E2 H0.
             eapply set_Memo_lexy; eauto.
           - repeat inj_all.
-            assert(max_pref_fn code (transition a stt) = None).
+            assert(max_pref_fn code (transition a (p,d)) = None).
             {
-              apply mpref_memo_eq_lexy_F in E; auto.
+              destruct (transition a (p, d)) eqn:E4. apply mpref_memo_eq_lexy_F in E; auto.
+              apply transition_Delta in E4. subst. auto.
             }
-            assert(max_pref_fn (a :: code) stt = None).
+            assert(max_pref_fn (a :: code) (p,d) = None).
             {
               simpl. repeat dm; try discriminate.
             }
+            destruct (transition a (p, d)) eqn:E4. apply transition_Delta in E4. subst.
             apply IHcode in E; auto. clear H H0 E3 E1 E2 M IHcode.
             unfold lexy. intros.
             eapply set_Memo_lexy; eauto.
         }
-      Qed.*)
+      Qed.
+
+      
 
       Lemma lexy_list_closure : 
         forall code rules Ms l0 Ms',
-          lexy_list (zip Ms (map (fun x => snd (snd x)) rules))
+          lexy_list (zip Ms (map ssnd rules))
           -> length Ms = length rules
           -> max_prefs__M Ms code rules = (Ms', l0)
-          -> lexy_list (zip Ms' (map (fun x => snd (snd x)) rules)).
+          -> lexy_list (zip Ms' (map ssnd rules)).
       Proof.
-      Admitted.
-        (*
-        intros. unfold lexy_list in *. intros M' H2.
-        apply In_nth with (d := emptyMemo) in H2. destruct H2 as [n]. destruct H2.
+        intros. unfold lexy_list in *. intros M' d H2.
+        apply In_nth with (d := (emptyMemo, defDelta)) in H2. destruct H2 as [n]. destruct H2.
         assert(L := all_lens_const Ms rules code Ms' l0 H0 H1). destruct L.
         assert(exists M, nth n Ms emptyMemo = M).
         { eexists; eauto. }
@@ -437,17 +445,45 @@ Module ImplFn (Import MEM : memo.T).
         { destruct (nth n rules ([], defState)). eexists; eauto. }
         destruct H8 as [label']. destruct H8 as [ru].
         assert(label = label').
-        { eapply nth_labels_match; eauto. }
+        {
+          eapply nth_labels_match; eauto. rewrite len_zip_L in H2; auto.
+          rewrite map_length. omega.
+        }
         rewrite H9 in *. clear H9.
+        rewrite nth_zip in *.
+        assert(nth n (zip Ms (map (fun x : Label * (Pointer * Delta) => snd (snd x)) rules))
+                   (emptyMemo, defDelta) = (M, d)).
+        {
+          rewrite nth_zip. inv H3. auto.
+        }
+        assert(n < length (zip Ms (map (fun x : Label * (Pointer * Delta) => snd (snd x)) rules))).
+        {
+          rewrite len_zip_L; [ rewrite len_zip_L in H2 | ]; try rewrite map_length; omega.
+        }
         eapply mprefs__M_associates in H0; eauto.
-
-        assert(Hlen : length Ms = length Ms').
-        { omega. }
-        
-        rewrite <- Hlen in H2.
-        apply nth_In with (d:=emptyMemo) in H2. rewrite H6 in H2. apply H in H2.
-        eapply lexy_closure; eauto.
-      Qed.*)
+        - destruct ru.
+          assert(d = d0).
+          {
+            injection H3; intros.
+            clear H H1 H2 H3 H4 H5 H6 H7 H9 H10 H12 H0 code Ms l0.
+            unfold defState.
+            assert(exists x, nth n rules (x, (defPointer, defDelta)) = (label', (p, d0))).
+            { eexists; eauto. }
+            clear H8. destruct H as (x & H).
+            assert(defDelta = ssnd (x, (defPointer, defDelta))).
+            { auto. }
+            rewrite H0 in H11. rewrite map_nth in H11. rewrite H in H11.
+            unfold ssnd in *. sis. auto.
+          }
+          subst.
+          assert(In (nth n Ms emptyMemo, d0)
+                    (zip Ms (map (fun x : Label * (Pointer * Delta) => snd (snd x)) rules))).
+          {
+            eapply nth_In in H10. rewrite H9 in H10. auto.
+          }
+          inv H3. apply H in H6. eapply lexy_closure; eauto.
+        - rewrite len_zip_L in H2; auto. rewrite map_length. omega.
+      Qed.
 
       Lemma lexy_recursive_call_gen :
         forall code rules Ms label o Ms',

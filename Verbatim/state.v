@@ -25,6 +25,8 @@ Module Type STATE (Import R : regex.T).
       transition_list [] fsm = fsm.
   Parameter transition_list_cons : forall bs a fsm,
       transition_list (a :: bs) fsm = transition_list bs (transition a fsm).
+  Parameter transition_Delta : forall a p p' d d',
+      transition a (p, d) = (p', d') -> d = d'.
   
   Parameter accepts : String -> State -> bool.
   Parameter accepting : State -> bool.

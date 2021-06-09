@@ -91,6 +91,9 @@ Module Export MEM <: memo.T.
       Lemma transition_list_cons : forall bs a fsm,
           transition_list (a :: bs) fsm = transition_list bs (transition a fsm).
       Admitted.
+      Lemma transition_Delta : forall a p p' d d',
+          transition a (p, d) = (p', d') -> d = d'.
+      Admitted.
       
       Definition accepts (s : String) (e : State) : bool :=
         match e with
@@ -133,17 +136,6 @@ Module Export MEM <: memo.T.
           accepting (transition_list bs (init_state e))
           = accepting (init_state (derivative_list bs e)).
       Proof. Admitted.
-
-      (*Lemma stt_dec : forall (s1 s2 : State), {s1 = s2} + {s1 <> s2}.
-      Proof.
-        intros. decide equality; clear s1 s2.
-        - clear a0 a p. try apply reFS.eq_dec. admit.
-        - clear b t. decide equality.
-          + clear a1 a0 r a p. decide equality.
-            * clear a a0 t0 t b. try apply reFS.eq_dec. admit.
-            * clear b t b0 t1. admit.
-          + clear a p b t. decide equality.
-      Admitted.*)
 
       Definition pointer_compare (s1 s2 : Pointer) : comparison :=
         re_compare s1 s2.
