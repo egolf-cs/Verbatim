@@ -62,8 +62,8 @@ match n with
 
 (* useful for separating DFA build time from lex time; negligible for now *)
 let srus = map init_sdrule rus
-let lex_pre = lex'__M (init_Memos srus) srus
-(* let lex_pre = lex' srus *)
+(* let lex_pre = lex'__M (init_Memos srus) srus *)
+let lex_pre = lex' srus
 (* let () = Printf.printf "%.5f\n" (time (map init_sdrule) rus) *)
 
 let evaluate fname =
