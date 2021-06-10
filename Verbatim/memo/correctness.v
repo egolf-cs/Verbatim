@@ -89,7 +89,12 @@ Module CorrectFn (Import MEM : memo.T).
             /\ h :: t = prefix
           end.
     Proof.
-    Admitted.
+      intros.
+      repeat dm; intros; subst; simpl in *; try congruence.
+      - split; inv H; eauto. right. exists s. apply f_equal with (f := snd) in Heq. auto.
+      - inv H. exists l3. exists l. exists s0. exists p2. exists s. exists Heq. split; auto.
+      - split; inv H; eauto. left. apply f_equal with (f := snd) in Heq. auto.
+    Qed.
 
     Lemma lex'_cases__M :
       forall Ms rules code Ha Hlexy Hlen res,
