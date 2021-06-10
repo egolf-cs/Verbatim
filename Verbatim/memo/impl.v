@@ -543,7 +543,7 @@ Module ImplFn (Import MEM : memo.T).
              (rules : list (sRule))
              (code : String)
              (Ha : Acc lt (length code))
-             (Hlexy : lexy_list (zip Ms (map (fun x => snd (snd x)) rules)))
+             (Hlexy : lexy_list (zip Ms (map ssnd rules)))
              (Hlen : length Ms = length rules)
              {struct Ha} : (list Memo) * (list Token) * String :=
       match max_of_prefs__M (max_prefs__M Ms code rules) as mpref'
@@ -580,7 +580,7 @@ Module ImplFn (Import MEM : memo.T).
     Qed.
 
     Lemma init_Memos_lexy : forall srules,
-        lexy_list (zip (init_Memos srules) (map (fun x => snd (snd x)) srules)).
+        lexy_list (zip (init_Memos srules) (map ssnd srules)).
     Proof.
       intros. induction srules.
       - simpl. unfold lexy_list. intros. contradiction.

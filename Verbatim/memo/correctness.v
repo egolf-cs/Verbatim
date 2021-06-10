@@ -25,7 +25,7 @@ Module CorrectFn (Import MEM : memo.T).
     Lemma lex'_eq_body__M :
       forall rules code Ms
         (Ha : Acc lt (length code))
-        (Hlexy : lexy_list Ms)
+        (Hlexy : lexy_list (zip Ms (map ssnd rules)))
         (Hlen : length Ms = length rules),
         (lex'__M Ms rules code Ha Hlexy Hlen =
          (match max_of_prefs__M (max_prefs__M Ms code rules) as mpref'
@@ -44,25 +44,24 @@ Module CorrectFn (Import MEM : memo.T).
               | (Ms'', lexemes, rest) => (Ms'', ((label, ph :: pt) :: lexemes), rest)
               end
           end eq_refl)).
-    Proof.
-      intros rules code Ha Hlexy Hlen. unfold lex'.
+    Proof. 
+      intros rules code Ha Hlexy Hlen.
       destruct Ha; destruct Hlexy; auto.
     Qed.
 
-    (*
     Lemma lex'_cases_backward__M :
       forall (Ms : list Memo)
         (rules : list sRule)
         (code : String)
         (Ha : Acc lt (length code))
-        (Hlexy : lexy_list Ms)
+        (Hlexy : lexy_list (zip Ms (map ssnd rules)))
         (Hlen : length Ms = length rules)
         (pr : list Memo * Label * option (Prefix * Suffix))
         (res : list Memo * list Token * String)
         (Heq : max_of_prefs__M (max_prefs__M Ms code rules) = pr),
         match pr as mpref' return max_of_prefs__M (max_prefs__M Ms code rules) = mpref' -> _ with
-        | (Ms', _, None) => fun _ => ([], code) (* Code cannot be processed further *)
-        | (Ms', _, Some ([], _)) => fun _ => ([], code) (* Code cannot be processed further *)
+        | (Ms', _, None) => fun _ => (Ms', [], code) (* Code cannot be processed further *)
+        | (Ms', _, Some ([], _)) => fun _ => (Ms', [], code) (* Code cannot be processed further *)
         | (Ms', label, Some (h :: t, suffix)) =>
           fun Heq =>
             match (lex'__M Ms' rules suffix
@@ -73,26 +72,24 @@ Module CorrectFn (Import MEM : memo.T).
             with
             | (Ms'', lexemes, rest) => (Ms'', ((label, h :: t) :: lexemes), rest)
             end
-        end Heq = res.
-                        (*
+        end Heq = res
         -> match res with
-          | ([], code') =>
+          | (_, [], code') =>
             code' = code
-            /\ (snd pr = None
-               \/ exists suf, snd pr = Some ([], suf))
-          | ((label, prefix) :: lexemes, rest) =>
-            exists h t suffix (Heq' : max_of_prefs (max_prefs code rules) = (label, Some (h :: t, suffix))),
-            lex' rules suffix (acc_recursive_call _ _ _ _ _ _ Ha Heq') = (lexemes, rest)
+            /\ (snd (max_of_prefs__M (max_prefs__M Ms code rules)) = None
+               \/ exists suf, snd (max_of_prefs__M (max_prefs__M Ms code rules)) = Some ([], suf))
+          | (_, (label, prefix) :: lexemes, rest) =>
+            exists Ms'' Ms' h t suffix (Heq' : max_of_prefs__M (max_prefs__M Ms code rules)
+                                 = (Ms', label, Some (h :: t, suffix))),
+            lex'__M Ms' rules suffix
+                         (acc_recursive_call__M _ _ _ _ _ _ _ _ Ha Hlexy Hlen Heq')
+                         (lexy_recursive_call _ _ _ _ _ _ _ _ Hlexy Hlen Heq')
+                         (len_recursive_call _ _ _ _ _ _ _ _ Hlen Heq')
+            = (Ms'', lexemes, rest)
             /\ h :: t = prefix
-          end
-          end*).
+          end.
     Proof.
-      intros rules code Ha pr res Heq.
-      repeat dm; intros; subst; simpl in *; try congruence.
-      - split; inv H; eauto.
-      - inv H. exists s0. exists p1. exists s. exists Heq. split. apply E3. reflexivity.
-      - split; inv H; eauto.
-    Qed.*)
+    Admitted.
 
     Lemma lex'_cases__M :
       forall Ms rules code Ha Hlexy Hlen res,
@@ -113,16 +110,17 @@ Module CorrectFn (Import MEM : memo.T).
             /\ h :: t = prefix
           end.
     Proof.
-      intros. rewrite lex'_eq_body__M in H. sis. repeat dm.
-      - subst.
-    Admitted.
+      intros; subst.
+      rewrite lex'_eq_body__M.
+      eapply lex'_cases_backward__M; eauto.
+    Qed.
 
   End CaseLemmas.
 
   Lemma momprefs_memo_F : forall code rus l o Ms Ms' l' o',
       max_of_prefs (max_prefs code rus) = (l, o)
       -> max_of_prefs__M (max_prefs__M Ms code rus) = (Ms', l', o')
-      -> lexy_list Ms
+      -> lexy_list (zip Ms (map ssnd rus))
       -> length Ms = length rus
       -> (l, o) = (l', o').
   Proof.
