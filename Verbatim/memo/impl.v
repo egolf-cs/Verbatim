@@ -471,7 +471,10 @@ Module ImplFn (Import MEM : memo.T).
         assert(nth n (zip Ms (map (fun x : Label * (Pointer * Delta) => snd (snd x)) rules))
                    (emptyMemo, defDelta) = (M, d)).
         {
-          rewrite nth_zip. inv H3. auto.
+          rewrite nth_zip.
+          - inv H3. auto.
+          - rewrite map_length. omega.
+          - rewrite len_zip_L in H2; try omega. rewrite map_length. omega.
         }
         assert(n < length (zip Ms (map (fun x : Label * (Pointer * Delta) => snd (snd x)) rules))).
         {
@@ -500,6 +503,8 @@ Module ImplFn (Import MEM : memo.T).
           }
           inv H3. apply H in H6. eapply lexy_closure; eauto.
         - rewrite len_zip_L in H2; auto. rewrite map_length. omega.
+        - rewrite map_length. omega.
+        - rewrite len_zip_L in H2; try omega. rewrite map_length. omega.
       Qed.
 
       Lemma lexy_recursive_call_gen :
