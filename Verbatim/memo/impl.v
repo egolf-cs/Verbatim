@@ -37,16 +37,33 @@ Module ImplFn (Import MEM : memo.T).
     Lemma len_zip_L : forall {X Y : Type} (xs : list X) (ys : list Y),
         length xs = length ys
         -> length (zip xs ys) = length xs.
-    Admitted.
+    Proof.
+      induction xs; intros; auto.
+      destruct ys.
+      - sis. omega.
+      - sis. apply f_equal. apply IHxs. omega.
+    Qed.
 
     Lemma len_zip_R : forall {X Y : Type} (xs : list X) (ys : list Y),
         length xs = length ys
-        -> length (zip xs ys) = length xs.
-    Admitted.
+        -> length (zip xs ys) = length ys.
+    Proof.
+      induction xs; intros; auto.
+      destruct ys.
+      - sis. omega.
+      - sis. apply f_equal. apply IHxs. omega.
+    Qed.
 
     Lemma nth_zip : forall n {X Y : Type} (xs : list X) (ys : list Y) dx dy,
-        nth n (zip xs ys) (dx, dy) = (nth n xs dx, nth n ys dy).
-    Admitted.
+        length xs = length ys
+        -> n < length xs
+        -> nth n (zip xs ys) (dx, dy) = (nth n xs dx, nth n ys dy).
+    Proof.
+      induction n; intros.
+      - destruct xs; destruct ys; try(sis; auto; omega).
+      - destruct xs; destruct ys; try(sis; auto; omega).
+        sis. apply IHn; omega.
+    Qed.
 
     Definition ssnd {A B C : Type} (x : A * (B * C)) := snd (snd x).
 
