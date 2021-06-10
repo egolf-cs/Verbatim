@@ -85,15 +85,33 @@ Module Export MEM <: memo.T.
             (x',y',z') => (x',(y',z'))
           end
         end.
+      
       Lemma transition_list_nil : forall fsm,
           transition_list [] fsm = fsm.
-      Admitted.
+      Proof.
+        intros. unfold transition_list. repeat dm.
+      Qed.
+      
       Lemma transition_list_cons : forall bs a fsm,
           transition_list (a :: bs) fsm = transition_list bs (transition a fsm).
-      Admitted.
+      Proof.
+        intros. unfold transition_list. repeat dm. sis. repeat dm.
+        - repeat inj_all.
+          assert((r, t2, t1) = (r0, t6, t5)).
+          { rewrite <- E1. rewrite <- E5. auto. }
+          inv H. auto.
+        - repeat inj_all.
+          assert((r, t2, t1) = (r0, t6, t5)).
+          { rewrite <- E1. rewrite <- E5. auto. }
+          inv H. auto.
+      Qed.
+      
       Lemma transition_Delta : forall a p p' d d',
           transition a (p, d) = (p', d') -> d = d'.
-      Admitted.
+      Proof.
+        intros. unfold transition in *. repeat dm. repeat inj_all.
+        apply DFAtransition_Delta in E0. destruct E0. subst. auto.
+      Qed.
       
       Definition accepts (s : String) (e : State) : bool :=
         match e with
@@ -109,7 +127,10 @@ Module Export MEM <: memo.T.
 
       Lemma accepts_transition : forall cand a fsm,
           accepts cand (transition a fsm) = accepts (a :: cand) fsm.
-      Proof. Admitted.
+      Proof.
+        intros. unfold accepts. repeat dm. rewrite accepts_cons. unfold transition in E.
+        repeat dm. repeat inj_all. auto.
+      Qed.
 
       Definition init_state (r : regex) : State :=
         match regex2dfa r with
@@ -135,7 +156,25 @@ Module Export MEM <: memo.T.
       Definition accepting_dt_list : forall bs e,
           accepting (transition_list bs (init_state e))
           = accepting (init_state (derivative_list bs e)).
-      Proof. Admitted.
+      Proof.
+        intros. unfold accepting. repeat dm.
+        unfold transition_list in E. repeat dm. repeat inj_all.
+        unfold init_state in *. repeat dm. repeat inj_all.
+        assert(DFAaccepting (p, t, t0)
+               = DFAaccepting (DFAtransition_list bs (p1, t3, t4))).
+        { rewrite E5. auto. }
+        rewrite H. clear H.
+        assert(DFAaccepting (p0, t1, t2)
+               = DFAaccepting (regex2dfa (derivative_list bs e))).
+        { rewrite E. auto. }
+        rewrite H. clear H.
+        assert(DFAaccepting (DFAtransition_list bs (p1, t3, t4))
+               = DFAaccepting (DFAtransition_list bs (regex2dfa e))).
+        { rewrite E2. auto. }
+        rewrite H. clear H.
+        apply DFAaccepting_dt_list.
+      Qed.
+        
 
       Definition pointer_compare (s1 s2 : Pointer) : comparison :=
         re_compare s1 s2.

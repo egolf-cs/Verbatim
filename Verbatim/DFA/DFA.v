@@ -104,20 +104,12 @@ Module DFAFn (TabT : Table.T).
 
     Module Import Mat := MatcherFn TabT.R.
 
-    (* unused? 
-    Lemma In_fin_nullable : forall es x,
-      reFS.In x (fin_states es)
-      -> nullable x = true.
-    Admitted.
+    Lemma DFAtransition_Delta : forall e T fs e' T' fs' a,
+        DFAtransition a (e, T, fs) = (e', T', fs')
+        -> T = T' /\ fs = fs'.
     Proof.
-      induction es; intros.
-      - contradiction.
-      - simpl in H. destruct (nullable a) eqn:E.
-        + simpl in H. destruct H.
-          * subst; auto.
-          * auto.
-        + auto.
-    Qed. *)
+      intros. sis. dm; repeat inj_all; auto.
+    Qed.
 
     Lemma compat_bool_nullable :
       SetoidList.compat_bool eq nullable.
