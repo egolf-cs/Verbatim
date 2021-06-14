@@ -20,7 +20,7 @@ From Verbatim Require Import concrete1.
 
 From Verbatim Require Import memo.memo.
 From Verbatim Require Import memo.impl.
-From Verbatim Require Import memo.correctness.
+(*From Verbatim Require Import memo.correctness.*)
 From Verbatim Require Import concrete3.
 
 Module Export MEM <: memo.T.
@@ -203,8 +203,8 @@ End MEM.
 Import MEM.STT.
 Module L := memo.impl.ImplFn MEM.
 Import L.
-Module C := memo.correctness.CorrectFn MEM.
-Import C.
+(*Module C := memo.correctness.CorrectFn MEM.
+Import C.*)
 
 Definition toS (z : string) : String := list_ascii_of_string z.
 Definition Sig_of_N (n : nat) : Sigma := ascii_of_nat 65.
@@ -306,6 +306,7 @@ Definition rus : list Rule := [ru_ws;ru_number;ru_string;ru_true;ru_false;ru_nul
 Definition lex := lex__M.
 Definition lex' := lex'__M.
 
-Extraction "Evaluation/Example/instance.ml" lex rus lex_sound__M lex_complete__M.
+Extraction "Evaluation/Example/instance.ml" lex rus.
+(*Extraction "Evaluation/Example/instance.ml" lex rus lex_sound__M lex_complete__M.*)
 
 

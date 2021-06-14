@@ -92,10 +92,13 @@ Module ImplFn (Import MEM : memo.T).
         in
 
         match mpxs with
-        | (M', None) => if (accepting state') then (M' , Some ([a], s')) else
-                         if (accepting state) then (M', Some ([], s)) else
-                           ((set_Memo M' (fst state) s None), None)
-        | (M', Some (p, q)) => (M', Some (a :: p, q))
+        | (M', None) =>
+          if (accepting state')
+          then (set_Memo M' (fst state) s (Some ([a], s')), Some ([a], s')) else
+            if (accepting state)
+            then (set_Memo M' (fst state) s (Some ([], s)), Some ([], s)) else
+              (set_Memo M' (fst state) s None, None)
+        | (M', Some (p, q)) => (set_Memo M' (fst state) s (Some (a :: p, q)), Some (a :: p, q))
         end
       end.
 
@@ -104,8 +107,12 @@ Module ImplFn (Import MEM : memo.T).
       : Memo * (Label * option (Prefix * Suffix)) :=
       match sru with
         (M, (a, fsm)) =>
-        match max_pref_fn__M M code fsm with
-          (M', o) => (M', (a, o))
+        match get_Memo M (fst fsm) code with
+        | None =>
+          match max_pref_fn__M M code fsm with
+            (M', o) => (M', (a, o))
+          end
+        | Some o => (M, (a, o))
         end
       end.
 
@@ -168,7 +175,7 @@ Module ImplFn (Import MEM : memo.T).
           max_prefs__M (m :: Ms) z (a :: rules) = (m' :: Ms', p :: lst)
           -> max_prefs__M [m] z [a] = ([m'], [p]) /\ max_prefs__M Ms z rules = (Ms', lst).
       Proof.
-        intros. unfold max_prefs__M in *. simpl in *. repeat dm; repeat inj_all; subst. auto.
+        intros. unfold max_prefs__M in *. simpl in *. repeat dm; repeat inj_all; subst; auto.
       Qed.
 
       Theorem mprefs_memo_F : forall z rules Ms Ms' lst,
@@ -186,17 +193,19 @@ Module ImplFn (Import MEM : memo.T).
           assert(A1 : length Ms = length rules).
           { simpl in H0. inv H0. auto. }
           destruct lst.
-          + unfold max_prefs__M in H1. simpl in H1. repeat dm. discriminate.
+          + unfold max_prefs__M in H1. simpl in H1. repeat dm; discriminate.
           + destruct Ms'.
-            * unfold max_prefs__M in H1. simpl in H1. repeat dm. discriminate.
+            * unfold max_prefs__M in H1. simpl in H1. repeat dm; discriminate.
             * simpl. unfold extract_fsm_for_max. dm. subst.
               apply cons_mprefs__M in H1. eapply IHrules in A0; destruct H1; eauto.
-              unfold max_prefs__M in e. simpl in e. repeat dm. repeat inj_all; subst.
-              destruct p0.
-              assert(A2 : lexy m d).
-              { unfold lexy_list in *. apply H. simpl. left. auto. }
-              eapply mpref_memo_eq_lexy_F in A2; eauto. subst. auto.
-      Qed.
+              unfold max_prefs__M in e. simpl in e. repeat dm.
+              -- admit.
+              -- repeat inj_all; subst.
+                 destruct p0.
+                 assert(A2 : lexy m d).
+                 { unfold lexy_list in *. apply H. simpl. left. auto. }
+                 eapply mpref_memo_eq_lexy_F in A2; eauto. subst. auto.
+      Admitted.
 
     End MemoEq.
 
@@ -309,7 +318,7 @@ Module ImplFn (Import MEM : memo.T).
         induction m; intros; destruct Ms; destruct rules; destruct Ms'; destruct l0; destruct n;
           try(simpl in *; omega).
         - apply cons_mprefs__M in H4. destruct H4. clear H7. simpl in *.
-          unfold max_prefs__M in H4. simpl in *. repeat dm; repeat inj_all. auto.
+          unfold max_prefs__M in H4. simpl in *. repeat dm; repeat inj_all; auto.
         - simpl in *.
           apply Nat.succ_inj in H.  apply Nat.succ_inj in H0.
           apply Nat.succ_inj in H1. apply Nat.succ_inj in H2.
@@ -360,10 +369,10 @@ Module ImplFn (Import MEM : memo.T).
           try(simpl in *; repeat inj_all; unfold max_prefs__M in *; simpl in *;
               repeat dm; repeat inj_all; discriminate).
         + simpl in *. subst. unfold max_prefs__M in *. simpl in *.
-          repeat dm. repeat inj_all. auto.
+          repeat dm; repeat inj_all; auto. admit.
         + simpl in *. injection H; intros; clear H.
           apply lt_S_n in H1. eapply IHn; eauto. eapply cons_mprefs__M; eauto.
-      Qed.
+      Admitted.
 
       Lemma set_Memo_lexy : forall z z0 o o' p p0 d m,
           max_pref_fn z (p, d) = o'
@@ -400,6 +409,8 @@ Module ImplFn (Import MEM : memo.T).
           lexy M d
           -> max_pref_fn__M M code (p,d) = (M', o)
           -> lexy M' d.
+      Admitted.
+      (*
       Proof.
         induction code; intros.
         {
@@ -438,7 +449,7 @@ Module ImplFn (Import MEM : memo.T).
             unfold lexy. intros.
             eapply set_Memo_lexy; eauto.
         }
-      Qed.
+      Qed.*)
 
       
 
@@ -593,6 +604,35 @@ Module ImplFn (Import MEM : memo.T).
     Proof.
       intros. induction srules; auto. sis. omega.
     Qed.
+
+    Definition lex__Ms' (rules : list Rule) (code : String) : list Memo * list Token * String :=
+      let
+        srules := map init_srule rules
+      in
+      match
+        lex'__M (init_Memos srules) srules code
+              (lt_wf _) (init_Memos_lexy _) (init_Memos_parallel _)
+       with
+       | (Ms, ts, rest) => (Ms, ts, rest)
+      end.
+
+    Lemma foo : forall Ms, lexy_list Ms.
+    Admitted.
+
+    Lemma bar : forall (Ms : list Memo) (rules : list sRule), length Ms = length rules.
+    Admitted.
+
+    
+    Definition lex__Ms (Ms : list Memo) (rules : list Rule) (code : String) : list Memo * list Token * String :=
+      let
+        srules := map init_srule rules
+      in
+      match
+        lex'__M Ms srules code
+              (lt_wf _) (foo _) (bar _ _)
+       with
+       | (Ms, ts, rest) => (Ms, ts, rest)
+       end.
 
     Definition lex__M (rules : list Rule) (code : String) : list Token * String :=
       let

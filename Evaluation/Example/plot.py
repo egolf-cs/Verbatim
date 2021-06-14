@@ -31,8 +31,13 @@ for j in js:
 
 xs = [j["input_len"] for j in js]
 ys = [mean(j["times"]) for j in js]
-# e = [stdev(j["times"]) for j in js]
-e = [0 for j in js]
+e = [stdev(j["times"]) for j in js]
+# e = [0 for j in js]
+for x in xs:
+    print(x)
+print("---")
+for y in ys:
+    print(y)
 
 # for p in list(zip(xs,ys)):
 #     print("{} {}".format(p[0], p[1]))

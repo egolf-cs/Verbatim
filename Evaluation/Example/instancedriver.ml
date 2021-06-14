@@ -1,4 +1,4 @@
-open Instance
+open Instance1
 open L.Lex
 
 let to_string chars =
@@ -66,7 +66,7 @@ let () = Printf.printf "%.5f\n" (time (map init_srule) rus)
 
 let evaluate fname =
   let code = to_chars (read_whole_file ("data/"^fname)) in
-  let codes = n_copies 5 code in
+  let codes = n_copies 2 code in
   let ts = map (time lex_pre) codes in
   let rest = (to_string (snd (lex_pre code))) in
   let rest_len = (String.length rest) in
