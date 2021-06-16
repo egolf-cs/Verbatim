@@ -14,9 +14,10 @@ Module CorrectFn (Import ST : state.T).
   Import LEM.
   Import LEM.IMPL.
 
-  Theorem lex'_sound : forall (x : nat) (Ha_x : Acc lt x) code (Ha : Acc lt (length code)) ts rest rus,
+  Theorem lex'_sound : forall (x : nat) (Ha_x : Acc lt x) code i Hindex
+                         (Ha : Acc lt (length code)) ts rest rus,
       x = length code
-      -> lex' (map init_srule rus) code Ha = (ts, rest)
+      -> lex' (map init_srule rus) code i Hindex Ha = (ts, rest)
       -> rules_is_function rus
       -> tokenized rus code ts rest.
   Proof.
@@ -40,7 +41,7 @@ Module CorrectFn (Import ST : state.T).
     {
       apply lex'_cases in H2.
       destruct t.
-      destruct H2 as (h & t & H2). destruct H2 as (s & Heq' & H2). destruct H2.
+      destruct H2 as (h & t & s & i' & Heq' & H2). destruct H2.
       subst.
       assert(A0 : s = concat (map snd ts) ++ rest).
       { apply lex'_splits in H1. auto. }
@@ -54,7 +55,10 @@ Module CorrectFn (Import ST : state.T).
       }
       rewrite A.
       apply Tkd1.
-      - rewrite <- A. eapply first_token_mpref; eauto.
+      - assert(i' = init_index (length s)).
+        { eapply index_closure_mprefs. eauto. }
+        clear H1. rewrite H2 in *.
+        rewrite <- A. eapply first_token_mpref; eauto.
       - apply H0 with (y := length s) in H1; auto.
         + subst. auto.
         + subst. simpl. clear. induction t; simpl; omega.

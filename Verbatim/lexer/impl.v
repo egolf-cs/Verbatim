@@ -13,56 +13,57 @@ Module ImplFn (Import ST : state.T).
   Import ST.Defs.
   
   Module Import MPref.
-    
-    Fixpoint max_pref_fn (s : String) (state : State)
-    : option (Prefix * Suffix):=
+
+    (* Invariant: index == length s *)
+    Fixpoint max_pref_fn (s : String) (i : index) (state : State)
+    : option (Prefix * Suffix * index):=
       match s with
       (* in a regex approach, accepting := nullable *)
-      | [] => if accepting state then Some ([],[]) else None
+      | [] => if accepting state then Some ([],[],i) else None
       | a :: s' =>
         let
           (* in a regex approach, transition := derivative *)
           state' := transition a state in
         let
-          mpxs := max_pref_fn s' state' in
+          mpxs := max_pref_fn s' (decr i) state' in
 
         match mpxs with
-        | None => if (accepting state') then Some ([a], s') else
-                   if (accepting state) then Some ([], s) else
+        | None => if (accepting state') then Some ([a], s', (decr i)) else
+                   if (accepting state) then Some ([], s, i) else
                      None
-        | Some (p, q) => Some (a :: p, q)
+        | Some (p, q, qi) => Some (a :: p, q, qi)
         end
       end.
 
-    Definition extract_fsm_for_max (code : String)
+    Definition extract_fsm_for_max (code : String) (i : index)
                (sru : (Label * State)) :=
       match sru with
-        (a, fsm) => (a, max_pref_fn code fsm)
+        (a, fsm) => (a, max_pref_fn code i fsm)
       end.
 
-    Definition max_prefs (code : String)
+    Definition max_prefs (code : String) (i : index)
                (erules : list (Label * State))
       :=
-      map (extract_fsm_for_max code) erules.
+      map (extract_fsm_for_max code i) erules.
 
     (* prefixes closest to the head are preferred *)
-    Definition longer_pref (apref1 apref2 : Label * (option (Prefix * Suffix)))
-      : Label * (option (Prefix * Suffix)) :=
+    Definition longer_pref (apref1 apref2 : Label * (option (Prefix * Suffix * index)))
+      : Label * (option (Prefix * Suffix * index)) :=
       match apref1, apref2 with
       | (_, None), (_, _) => apref2
       | (_, _), (_, None) => apref1
       (* This is finding the min right now... *)
-      | (_, Some (x, _)), (_, Some (y, _)) => if (length x) =? (length y)
+      | (_, Some (x, _, _)), (_, Some (y, _, _)) => if (length x) =? (length y)
                                              then apref1 else
                                                if (length x) <? (length y)
                                                then apref2 else apref1
       end.
 
     
-    Fixpoint max_of_prefs (mprefs : list (Label * (option (Prefix * Suffix))))
-      : Label * option (Prefix * Suffix) :=
+    Fixpoint max_of_prefs (mprefs : list (Label * (option (Prefix * Suffix * index))))
+      : Label * option (Prefix * Suffix * index) :=
       match mprefs with
-      | [] => ([], @None (String * String))
+      | [] => ([], @None (String * String * index))
       | p :: ps => longer_pref p (max_of_prefs ps)
       end.
 
@@ -70,20 +71,20 @@ Module ImplFn (Import ST : state.T).
 
   Module Export TypeCheckLemmas.
     
-    Lemma max_pref_fn_splits : forall code prefix suffix (fsm : State),
-      Some (prefix, suffix) = max_pref_fn code fsm -> code = prefix ++ suffix.
+    Lemma max_pref_fn_splits : forall code prefix suffix (fsm : State) i i',
+      Some (prefix, suffix, i') = max_pref_fn code i fsm -> code = prefix ++ suffix.
     Proof.
       induction code as [| a s']; intros; simpl in H;
         repeat dm; repeat inj_all; auto; try(discriminate).
       symmetry in E. apply IHs' in E. rewrite E. auto.
     Qed.
 
-    Lemma proper_suffix_shorter : forall code prefix suffix (fsm : State),
+    Lemma proper_suffix_shorter : forall code prefix suffix (fsm : State) i i',
         prefix <> []
-        -> Some (prefix, suffix) = max_pref_fn code fsm
+        -> Some (prefix, suffix, i') = max_pref_fn code i fsm
         -> length suffix < length code.
     Proof.
-      intros code prefix suffix fsm. intros Hneq Heq.
+      intros code prefix suffix fsm i i'. intros Hneq Heq.
       apply max_pref_fn_splits in Heq. rewrite Heq.
       replace (length (prefix ++ suffix)) with ((length prefix) + (length suffix)).
       - apply Nat.lt_add_pos_l. destruct prefix.
@@ -104,16 +105,16 @@ Module ImplFn (Import ST : state.T).
   Module Export Lex.
     
     Lemma acc_recursive_call :
-      forall code rules label s l suffix,
+      forall code rules label s l suffix i i',
         Acc lt (length code)
-        -> max_of_prefs (max_prefs code rules) = (label, Some (s :: l, suffix))
+        -> max_of_prefs (max_prefs code i rules) = (label, Some (s :: l, suffix, i'))
         -> Acc lt (length suffix).
     Proof.
-      intros code rules label s l suffix Ha Heq.
+      intros code rules label s l suffix i i' Ha Heq.
       apply Acc_inv with (x := length code).
       - apply Ha.
-      - assert(A2 : exists(fsm : State), Some (s :: l, suffix)
-                                    = max_pref_fn code fsm).
+      - assert(A2 : exists(fsm : State), Some (s :: l, suffix, i')
+                                    = max_pref_fn code i fsm).
         {
           induction rules.
           - simpl in Heq. discriminate.
@@ -126,26 +127,41 @@ Module ImplFn (Import ST : state.T).
         assert(A3 : s :: l <> []).
         { intros C. discriminate. }
         destruct A2 as (fsm & A2).
-        apply proper_suffix_shorter with (suffix := suffix) (code := code)
-                                         (fsm := fsm) in A3.
-        + apply A3.
-        + apply A2.
+        eapply proper_suffix_shorter with (suffix := suffix) (code := code)
+                                         (fsm := fsm) in A3; eauto.
+    Defined.
+
+    Lemma index_rec_call' : forall rules code i suffix i' ph pt label,
+        i = init_index (length code)
+        -> max_of_prefs (max_prefs code i rules) = (label, Some (ph :: pt, suffix, i'))
+        -> i' = init_index (length suffix).
+    Admitted.
+
+    Lemma index_rec_call : forall rules code i suffix i' ph pt label,
+        i = init_index (length code)
+        -> max_of_prefs (max_prefs code i rules) = (label, Some (ph :: pt, suffix, i'))
+        -> i' = init_index (length suffix).
+    Proof.
+      apply index_rec_call'.
     Defined.
 
     Fixpoint lex'
              (rules : list sRule)
              (code : String)
+             (i : index)
+             (Hindex : i = init_index (length code))
              (Ha : Acc lt (length code))
              {struct Ha} : (list Token) * String :=
-      match max_of_prefs (max_prefs code rules) as mpref'
-            return max_of_prefs (max_prefs code rules) = mpref' -> _
+      match max_of_prefs (max_prefs code i rules) as mpref'
+            return max_of_prefs (max_prefs code i rules) = mpref' -> _
       with
       | (_, None) => fun _ => ([], code) (* Code cannot be processed further *)
-      | (_, Some ([], _)) => fun _ => ([], code) (* Code cannot be processed further *)
-      | (label, Some (ph :: pt, suffix)) =>
+      | (_, Some ([], _, _)) => fun _ => ([], code) (* Code cannot be processed further *)
+      | (label, Some (ph :: pt, suffix, i')) =>
         fun Heq =>
-          match (lex' rules suffix
-                      (acc_recursive_call _ _ _ _ _ _ Ha Heq)) with
+          match (lex' rules suffix i'
+                      (index_rec_call _ _ _ _ _ _ _ _ Hindex Heq)
+                      (acc_recursive_call _ _ _ _ _ _ _ _ Ha Heq)) with
           | (lexemes, rest) => (((label, ph :: pt) :: lexemes), rest)
           end
       end eq_refl.
@@ -160,7 +176,7 @@ Module ImplFn (Import ST : state.T).
       let
         srules := map init_srule rules
       in
-      lex' srules code (lt_wf _).
+      lex' srules code (init_index (length code)) eq_refl (lt_wf _).
     
   End Lex.
 

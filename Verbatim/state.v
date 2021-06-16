@@ -18,6 +18,18 @@ Module Type STATE (Import R : regex.T).
   Parameter defDelta : Delta.
   Definition State : Type := prod Pointer Delta.
   Definition defState : State := (defPointer, defDelta).
+
+  Parameter index : Type.
+  Parameter index0 : index.
+  Parameter incr : index -> index.
+  Parameter decr : index -> index.
+  Parameter init_index : nat -> index.
+  Parameter decr_inv_incr : forall i, decr (incr i) = i.
+  Parameter incr_inv_decr : forall i, incr (decr i) = i.
+  Parameter decr_inv_S : forall n, decr (init_index (S n)) = init_index n.
+  Parameter incr_is_S : forall n, init_index (S n) = incr (init_index n).
+  Parameter n_det_index : forall n1 n2, init_index n1 = init_index n2 -> n1 = n2.
+                                                                   
   
   Parameter transition : Sigma -> State -> State.
   Parameter transition_list : list Sigma -> State -> State.
@@ -55,6 +67,7 @@ Module Type STATE (Import R : regex.T).
 
   Parameter pointer_compare_trans : forall c x y z,
       pointer_compare x y = c -> pointer_compare y z = c -> pointer_compare x z = c.
+
 
 
 End STATE.

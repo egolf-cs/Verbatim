@@ -19,10 +19,9 @@ Verbatim/DFA/Table.v
 Verbatim/DFA/DFA.v
 
 Verbatim/DFA/concrete1.v
-Verbatim/memo/concrete3.v
 
 Verbatim/memo/memo.v
 Verbatim/memo/impl.v
-Verbatim/memo/correctness.v
+
 
 Example4.v

@@ -12,8 +12,8 @@ Module Type MEMO (Import STT : state.T).
 
   Parameter Memo : Type.
   Parameter emptyMemo : Memo.
-  Parameter set_Memo : Memo -> Pointer -> String -> option(String * String) -> Memo.
-  Parameter get_Memo : Memo -> Pointer -> String -> option (option (String * String)).
+  Parameter set_Memo : Memo -> Pointer -> index -> option(String * String * index) -> Memo.
+  Parameter get_Memo : Memo -> Pointer -> index -> option (option (String * String * index)).
 
   Parameter correct_Memo : forall M stt z o, get_Memo (set_Memo M stt z o) stt z = Some (o).
   Parameter correct_Memo_moot : forall M stt stt' z z' o,
@@ -31,16 +31,23 @@ Module MemoDefsFn (STT : state.T) (MEM : MEMO STT).
   Module Import NaiveLexerF := lexer.correct.CorrectFn STT.
   Import STT.Ty.
   Import NaiveLexer.MPref.
+  Import STT.R.Defs.Strings.
+
   
-  Definition lexy (M : Memo) (d : Delta) : Prop :=
-    forall stt z o,
-      (get_Memo M stt z = Some o
-       -> max_pref_fn z (stt, d) = o)
+  Definition ith_suffix (code sx : String) (i : index) : Prop :=
+    init_index (length sx) = i
+    /\ exists px, px ++ sx = code.
+  
+  Definition lexy (code : String) (M : Memo) (d : Delta) : Prop :=
+    forall stt z i o,
+      (get_Memo M stt i = Some o
+       -> ith_suffix code z i
+       -> max_pref_fn z i (stt, d) = o)
       (*/\ (max_pref_fn z stt = o
          -> (get_Memo M stt z = Some o \/ get_Memo M stt z = None))*).
 
-  Definition lexy_list (Ms : list (Memo * Delta)) : Prop :=
-    forall M d, In (M, d) Ms -> lexy M d.
+  Definition lexy_list (code : String) (Ms : list (Memo * Delta)) : Prop :=
+    forall M d, In (M, d) Ms -> lexy code M d.
 
 
 End MemoDefsFn.
