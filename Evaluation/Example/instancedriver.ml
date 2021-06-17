@@ -60,15 +60,15 @@ match n with
 | _ -> x :: (n_copies (n-1) x)
 
 let srus = map init_srule rus
-let lex_pre = lex'__M (init_Memos srus) srus
-(* let lex_pre = lex' srus *)
+(*let lex_pre orig = lex'__M orig (init_Memos srus) srus
+let lex_pre = lex' srus *)
 let () = Printf.printf "%.5f\n" (time (map init_srule) rus)
 
 let evaluate fname =
   let code = to_chars (read_whole_file ("data/"^fname)) in
   let codes = n_copies 5 code in
-  let ts = map (time lex_pre) codes in
-  let rest = (to_string (snd (lex_pre code))) in
+  let ts = map (time (lex__M rus)) codes in
+  let rest = (to_string (snd (lex__M rus code))) in
   let rest_len = (String.length rest) in
   (fname, List.length code, ts, rest_len)
 

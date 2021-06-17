@@ -5,6 +5,8 @@ Utils/asciiFinite.v
 Utils/ascii_order.v
 Utils/Orders.v
 
+fixbin/hashtrie.v
+
 Verbatim/regex.v
 
 Verbatim/state.v
@@ -23,5 +25,6 @@ Verbatim/DFA/concrete1.v
 Verbatim/memo/memo.v
 Verbatim/memo/impl.v
 
+Verbatim/memo/concrete3.v
 
 Example4.v

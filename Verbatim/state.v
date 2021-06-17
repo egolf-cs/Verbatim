@@ -21,9 +21,16 @@ Module Type STATE (Import R : regex.T).
 
   Parameter index : Type.
   Parameter index0 : index.
+  Parameter index_eq_dec : forall (i ii : index), {i = ii} + {i <> ii}.
   Parameter incr : index -> index.
   Parameter decr : index -> index.
   Parameter init_index : nat -> index.
+  
+  Parameter index2list : index -> list bool.
+  Parameter list2index : list bool -> index.
+  Parameter list_inv : forall (x : index), list2index (index2list x) = x.
+
+  (* for index correctness *)
   Parameter decr_inv_incr : forall i, decr (incr i) = i.
   Parameter incr_inv_decr : forall i, incr (decr i) = i.
   Parameter decr_inv_S : forall n, decr (init_index (S n)) = init_index n.
@@ -82,7 +89,7 @@ Module DefsFn (R : regex.T) (Ty : STATE R).
     Definition t := Pointer.
     Definition compare := pointer_compare.
     Definition compare_eq := pointer_compare_eq.
-    Definition compare_trans := pointer_compare_trans.
+    Definition compare_trans := pointer_compare_trans.    
   End Pointer_as_UCT.
   
   Module Export Coredefs.
