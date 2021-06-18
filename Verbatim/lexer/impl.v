@@ -13,17 +13,17 @@ Module ImplFn (Import ST : state.T).
 
   Import ST.Ty.
   Import ST.Defs.
-  Module MPref := impl_pref.ImplFn ST.
-  Import MPref.
   Module LEM := lemmas_pref.LemmasFn ST.
   Import LEM.
+  Import LEM.IMPL.
+  
 
   Module Export Lex.
     
     Lemma acc_recursive_call :
       forall code rules label s l suffix i i',
         Acc lt (length code)
-        -> MPref.max_of_prefs (max_prefs code i rules) = (label, Some (s :: l, suffix, i'))
+        -> max_of_prefs (max_prefs code i rules) = (label, Some (s :: l, suffix, i'))
         -> Acc lt (length suffix).
     Proof.
       intros code rules label s l suffix i i' Ha Heq.
@@ -53,13 +53,10 @@ Module ImplFn (Import ST : state.T).
         -> max_of_prefs (max_prefs code i rules) = (label, Some (z, suffix, i'))
         -> i' = init_index (length suffix).
     Proof.
-      induction code; intros.
-      - destruct rules; subst; sis; repeat inj_all; try discriminate.
-        destruct p. sis.
-        repeat dm;
-          try(repeat inj_all; sis; auto; discriminate).
-        + repeat inj_all; sis. destruct z; sis; try discriminate.
-    Admitted.
+      intros.
+      rewrite H in *. apply exists_rus_of_mpref_gen in H0. destruct H0 as (r & Hin & E2).
+      symmetry in E2. apply index_closure_gen in E2. auto.
+    Qed.
 
 
     Lemma index_rec_call : forall rules code i suffix i' ph pt label,
@@ -91,11 +88,6 @@ Module ImplFn (Import ST : state.T).
           end
       end eq_refl.
     (**)
-
-    Definition init_srule (rule : Rule) : sRule :=
-      match rule with
-      | (label, re) => (label, init_state re)
-      end.
 
     Definition lex (rules : list Rule) (code : String) :=
       let

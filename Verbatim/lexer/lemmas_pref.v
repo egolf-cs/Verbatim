@@ -366,6 +366,23 @@ Module LemmasFn (Import ST : state.T).
      }
    Qed.
 
+   Theorem index_closure_gen : forall code p q qi r,
+       Some (p, q, qi)
+       = max_pref_fn code (init_index (length code)) r
+       ->  qi = (init_index (length q)).
+   Proof.
+     induction code; intros.
+     - sis. repeat dm.
+       + repeat inj_all. sis. auto.
+       + discriminate.
+     - sis. repeat dm.
+       + rewrite decr_inv_S in *. symmetry in E. apply IHcode in E.
+         repeat inj_all. auto.
+       + repeat inj_all. apply decr_inv_S.
+       + repeat inj_all. sis. auto.
+       + discriminate.
+   Qed.
+
    Theorem index_closure : forall code p q qi e,
        Some (p, q, qi)
        = max_pref_fn code (init_index (length code)) (init_state e)

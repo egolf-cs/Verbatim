@@ -30,7 +30,7 @@ Module MemoDefsFn (STT : state.T) (MEM : MEMO STT).
   Module Import NaiveLexer := lexer.impl.ImplFn STT.
   Module Import NaiveLexerF := lexer.correct.CorrectFn STT.
   Import STT.Ty.
-  Import NaiveLexer.MPref.
+  Import NaiveLexer.LEM.IMPL.
   Import STT.R.Defs.Strings.
 
   Module Invariants.

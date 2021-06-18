@@ -13,12 +13,13 @@ Module CorrectFn (Import ST : state.T).
   Module LEM := LemmasFn ST.
   Import LEM.
   Import LEM.IMPL.
-  Import LEM.Lemmas.
+  Import LEM.IMPL.LEM.
+  Import LEM.IMPL.LEM.IMPL.
 
   Theorem lex'_sound : forall (x : nat) (Ha_x : Acc lt x) code i Hindex
                          (Ha : Acc lt (length code)) ts rest rus,
       x = length code
-      -> lex' (map init_srule rus) code i Hindex Ha = (ts, rest)
+      -> lex' (map LEM.IMPL.init_srule rus) code i Hindex Ha = (ts, rest)
       -> rules_is_function rus
       -> tokenized rus code ts rest.
   Proof.

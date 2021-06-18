@@ -18,7 +18,6 @@ Module CorrectFn (Import MEM : memo.T).
   Import MEM.Defs.NaiveLexerF.LEM.
   Import MEM.Defs.NaiveLexerF.LEM.Lemmas.
   Import MEM.Defs.NaiveLexerF.
-  Import MEM.Defs.NaiveLexer.MPref.
   Import IMPL.
   Import MEMO.
 
@@ -170,14 +169,14 @@ Module CorrectFn (Import MEM : memo.T).
     }
     rewrite <- A in H0.
     sis.
-    assert (A0 : Defs.NaiveLexer.MPref.max_of_prefs (max_prefs code i rus)
+    assert (A0 :  Defs.NaiveLexer.LEM.IMPL.max_of_prefs (max_prefs code i rus)
             = max_of_prefs (max_prefs code i rus)).
     {
       auto.
     }
     rewrite A in *. clear A.
     destruct (max_of_prefs (max_prefs code i rus)).
-    destruct (Defs.NaiveLexer.MPref.max_of_prefs l1).
+    destruct ( Defs.NaiveLexer.LEM.IMPL.max_of_prefs l1).
     inv H0. rewrite H in *. auto.
   Qed.
 
