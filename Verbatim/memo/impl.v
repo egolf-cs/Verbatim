@@ -13,11 +13,13 @@ Module ImplFn (Import MEM : memo.T).
 
   Module Import MEMO := MEM.MemTy.
   Module Import Defs := MEM.Defs.
+  Import Defs.Invariants.
   Import Defs.NaiveLexer.
   Import Defs.NaiveLexer.MPref.
   Import MEM.STT.Defs.
   Import MEM.STT.Ty.
   Module Import L := LemmasFn MEM.STT.
+  Import L.Lemmas.
 
   Module Export Utils.
 
@@ -600,6 +602,24 @@ Module ImplFn (Import MEM : memo.T).
     End LexyClosure.
 
     Module Export IndexClosure.
+
+      Lemma index_rec_call__M_gen : forall code rules Ms label z suffix Ms' i i' orig,
+           lexy_list orig (zip Ms (map ssnd rules))
+           -> length Ms = length rules
+           -> max_of_prefs__M (max_prefs__M Ms code i rules) = (Ms', label, Some (z, suffix, i'))
+           -> ith_suffix orig code i
+           -> ith_suffix orig suffix i'.
+      Proof.
+        intros.
+        destruct (max_prefs__M Ms code i rules) eqn:E. eapply mprefs_memo_F in E; eauto.
+        rewrite <- E in H1. unfold max_of_prefs__M in *. dm. inv H1.
+        unfold ith_suffix in *. destruct H2. destruct H2.
+        split.
+        - apply index_rec_call_gen in E0; auto.
+        - exists (x ++ z). rewrite <- app_assoc. rewrite <- H1 in *.
+          apply exists_rus_of_mpref_gen in E0. destruct E0 as (r & HIn & E0).
+          symmetry in E0. apply max_pref_fn_splits in E0. rewrite <- E0. auto.
+      Qed.
 
       Lemma index_rec_call__M : forall code rules Ms label s l suffix Ms' i i' orig,
            lexy_list orig (zip Ms (map ssnd rules))

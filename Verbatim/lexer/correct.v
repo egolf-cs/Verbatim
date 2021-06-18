@@ -13,6 +13,7 @@ Module CorrectFn (Import ST : state.T).
   Module LEM := LemmasFn ST.
   Import LEM.
   Import LEM.IMPL.
+  Import LEM.Lemmas.
 
   Theorem lex'_sound : forall (x : nat) (Ha_x : Acc lt x) code i Hindex
                          (Ha : Acc lt (length code)) ts rest rus,

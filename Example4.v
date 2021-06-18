@@ -22,6 +22,7 @@ From Verbatim Require Import concrete1.
 
 From Verbatim Require Import memo.memo.
 From Verbatim Require Import memo.impl.
+From Verbatim Require Import memo.correctness.
 From Verbatim Require Import concrete3.
 
 Module Export MEM <: memo.T.

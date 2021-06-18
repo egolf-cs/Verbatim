@@ -33,21 +33,24 @@ Module MemoDefsFn (STT : state.T) (MEM : MEMO STT).
   Import NaiveLexer.MPref.
   Import STT.R.Defs.Strings.
 
-  
-  Definition ith_suffix (code sx : String) (i : index) : Prop :=
-    init_index (length sx) = i
-    /\ exists px, px ++ sx = code.
-  
-  Definition lexy (code : String) (M : Memo) (d : Delta) : Prop :=
-    forall stt z i o,
-      (get_Memo M stt i = Some o
-       -> ith_suffix code z i
-       -> max_pref_fn z i (stt, d) = o)
-      (*/\ (max_pref_fn z stt = o
+  Module Invariants.
+    
+    Definition ith_suffix (code sx : String) (i : index) : Prop :=
+      init_index (length sx) = i
+      /\ exists px, px ++ sx = code.
+    
+    Definition lexy (code : String) (M : Memo) (d : Delta) : Prop :=
+      forall stt z i o,
+        (get_Memo M stt i = Some o
+         -> ith_suffix code z i
+         -> max_pref_fn z i (stt, d) = o)
+    (*/\ (max_pref_fn z stt = o
          -> (get_Memo M stt z = Some o \/ get_Memo M stt z = None))*).
 
-  Definition lexy_list (code : String) (Ms : list (Memo * Delta)) : Prop :=
-    forall M d, In (M, d) Ms -> lexy code M d.
+    Definition lexy_list (code : String) (Ms : list (Memo * Delta)) : Prop :=
+      forall M d, In (M, d) Ms -> lexy code M d.
+
+  End Invariants.
 
 
 End MemoDefsFn.
