@@ -22,6 +22,13 @@ Module ImplFn (Import MEM : memo.T).
   Import L.Lemmas.
 
   Module Export Utils.
+    
+    Lemma app_cons_comm2 : forall {A : Type} ys xs (y : A),
+      xs ++ y :: ys = (xs ++ [y]) ++ ys.
+    Proof.
+      intros. rewrite <- app_assoc. sis. auto.
+    Qed.
+      
 
     Fixpoint zip {A B : Type} (a : list A) (b: list B) : list (A * B) :=
       match a, b with
@@ -146,7 +153,12 @@ Module ImplFn (Import MEM : memo.T).
 
       Lemma ith_suffix_cons : forall z code a i, 
         ith_suffix code (a :: z) i -> ith_suffix code z (decr i).
-      Admitted.
+      Proof.
+        intros.
+        unfold ith_suffix in *. destruct H. split.
+        - sis. rewrite <- H. rewrite decr_inv_S. auto.
+        - destruct H0. exists (x ++ [a]). rewrite <- app_cons_comm2. auto.
+      Qed.
       
       Lemma lexy_correct : forall M pnt z o d code i,
         lexy code M d
@@ -390,9 +402,6 @@ Module ImplFn (Import MEM : memo.T).
           apply lt_S_n in H1. eapply IHn; eauto. eapply cons_mprefs__M; eauto.
       Qed.
 
-      Lemma app_cons_comm2 : forall {A : Type} xs ys (y : A),
-          xs ++ y :: ys = (xs ++ [y]) ++ ys.
-      Admitted.
 
       Lemma eq_len_suffix : forall {A : Type} (z0 z x0 x : list A),
           x0 ++ z0 = x ++ z
@@ -452,6 +461,34 @@ Module ImplFn (Import MEM : memo.T).
           eapply lexy_correct; eauto.
       Qed.
 
+      Lemma ith_suffix_unique : forall z z' i orig,
+          ith_suffix orig z i
+          -> ith_suffix orig z' i
+          -> z = z'.
+      Proof.
+        induction z; destruct z'; intros.
+        - auto.
+        - unfold ith_suffix in *. destruct H. destruct H0. rewrite <- H in *. sis.
+          apply n_det_index in H0. discriminate.
+        - unfold ith_suffix in *. destruct H. destruct H0. rewrite <- H in *. sis.
+          apply n_det_index in H0. discriminate.
+        - assert(z = z').
+          {
+            apply ith_suffix_cons in H. apply ith_suffix_cons in H0.
+            eapply IHz; eauto.
+          }
+          subst z'.
+          assert(a = s).
+          {
+            unfold ith_suffix in *. destruct H. destruct H0.
+            destruct H1. destruct H2. rewrite <- H1 in *.
+            apply f_equal with (f := @rev Sigma) in H2. repeat rewrite rev_app_distr in H2.
+            sis. repeat rewrite <- app_assoc in *. apply app_inv_head in H2. sis.
+            injection H2; intros; subst; auto.
+          }
+          subst a. auto.
+      Qed.
+
       Lemma lexy_closure : 
         forall code p d M o M' i orig,
           lexy orig M d
@@ -459,47 +496,75 @@ Module ImplFn (Import MEM : memo.T).
           -> ith_suffix orig code i
           -> lexy orig M' d.
       Proof.
-      Admitted.
-        (*
         induction code; intros.
         {
-          simpl in H0. dm; inv H0; auto.
+          assert(max_pref_fn [] i (p,d) = o).
+          { eapply mpref_memo_eq_lexy_F; eauto. }
+          simpl in H0. repeat dm.
+          - inv H0. auto.
+          - inv H0. rewrite H5. clear H5 E. unfold lexy. intros.
+            destruct (Pointer_as_UCT.Pointer_eq_dec p stt).
+            + destruct (index_eq_dec i i0).
+              * subst.
+                assert(z = []).
+                { unfold ith_suffix in *. destruct H1. destruct H2.
+                  rewrite <- H1 in *. apply n_det_index in H2.
+                  sis. rewrite length_zero_iff_nil in H2. auto.
+                }
+                subst z.
+                rewrite correct_Memo in H0. injection H0. sis. auto.
+              * rewrite correct_Memo_moot in H0; auto.
+            + rewrite correct_Memo_moot in H0; auto.
         }
         {
-          simpl in H0. repeat dm;
-          try(repeat inj_all; auto);
-          try(repeat inj_all; 
-            destruct (transition a (p,d)) eqn:H2; apply transition_Delta in H2; subst;
-            eapply IHcode; eauto; reflexivity).
+          destruct o;
+            assert (H0' := H0);
+            simpl in H0;
+            repeat dm;
+            try(repeat inj_all; auto; discriminate);
+            try(repeat inj_all; assert(H1' := H1); inv H1; sis; rewrite decr_inv_S in *;
+                destruct (transition a (p, d)) eqn:E0;
+                apply transition_Delta in E0; subst;
+                eapply IHcode in E; eauto; apply ith_suffix_cons in H1';
+                rewrite decr_inv_S in *; auto; discriminate).
+          - repeat inj_all. destruct (transition a (p,d)) eqn:E.
+            apply transition_Delta in E. subst.
+            clear IHcode. eapply mpref_memo_eq_lexy_F in H0'; eauto.
+            rewrite <- H0'. clear H0' E1 E2 E3. unfold lexy. intros.
+            destruct (Pointer_as_UCT.Pointer_eq_dec p stt).
+            + destruct (index_eq_dec i i0).
+              * subst.
+                rewrite correct_Memo in H0.
+                assert(z = (a :: code)).
+                {
+                  eapply ith_suffix_unique; eauto.
+                }
+                subst z. injection H0. auto.
+              * rewrite correct_Memo_moot in H0; auto.
+            + rewrite correct_Memo_moot in H0; auto.
           - repeat inj_all.
-            assert(max_pref_fn code (transition a (p,d)) = None).
+            assert(lexy orig m d).
             {
-              unfold lexy in H. apply H in E3. auto. destruct (transition a (p, d)) eqn:E4.
-              sis. apply transition_Delta in E4. subst. auto.
+              clear H0' E1 E2. apply ith_suffix_cons in H1.
+              destruct (transition a (p,d)) eqn:E1. apply transition_Delta in E1. subst d.
+              eapply IHcode; eauto.
             }
-            assert(max_pref_fn (a :: code) (p,d) = None).
-            {
-              simpl. repeat dm; try discriminate.
-            }
-            unfold lexy. intros. clear IHcode E3 E1 E2 H0.
-            eapply set_Memo_lexy; eauto.
-          - repeat inj_all.
-            assert(max_pref_fn code (transition a (p,d)) = None).
-            {
-              destruct (transition a (p, d)) eqn:E4. apply mpref_memo_eq_lexy_F in E; auto.
-              apply transition_Delta in E4. subst. auto.
-            }
-            assert(max_pref_fn (a :: code) (p,d) = None).
-            {
-              simpl. repeat dm; try discriminate.
-            }
-            destruct (transition a (p, d)) eqn:E4. apply transition_Delta in E4. subst.
-            apply IHcode in E; auto. clear H H0 E3 E1 E2 M IHcode.
+            eapply mpref_memo_eq_lexy_F in H0'; eauto.
+            clear E1 E2 E2 IHcode E E3 H M.
             unfold lexy. intros.
-            eapply set_Memo_lexy; eauto.
+            destruct (Pointer_as_UCT.Pointer_eq_dec p stt).
+            + destruct (index_eq_dec i i0).
+              * subst.
+                rewrite correct_Memo in H.
+                assert(z = (a :: code)).
+                {
+                  eapply ith_suffix_unique; eauto.
+                }
+                subst z. injection H. intros. subst. auto.
+              * rewrite correct_Memo_moot in H; auto.
+            + rewrite correct_Memo_moot in H; auto.
         }
       Qed.
-         *)
 
       
 

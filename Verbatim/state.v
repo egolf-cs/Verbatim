@@ -89,7 +89,16 @@ Module DefsFn (R : regex.T) (Ty : STATE R).
     Definition t := Pointer.
     Definition compare := pointer_compare.
     Definition compare_eq := pointer_compare_eq.
-    Definition compare_trans := pointer_compare_trans.    
+    Definition compare_trans := pointer_compare_trans.
+
+    Lemma Pointer_eq_dec : forall (x y : Pointer), {x = y} + {x <> y}.
+    Proof.
+      intros. destruct (pointer_compare x y) eqn:E.
+      - apply pointer_compare_eq in E. auto.
+      - right. intros C. apply pointer_compare_eq in C. rewrite C in *. discriminate.
+      - right. intros C. apply pointer_compare_eq in C. rewrite C in *. discriminate.
+    Qed.
+    
   End Pointer_as_UCT.
   
   Module Export Coredefs.
