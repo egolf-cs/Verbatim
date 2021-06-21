@@ -402,6 +402,6 @@ Definition rus : list Rule := [ru_ws;ru_number;ru_string;ru_true;ru_false;ru_nul
 Definition lex := lex__M.
 Definition lex' := lex'__M.
 
-Extraction "Evaluation/Example/instance.ml" lex rus.
+Extraction "Evaluation/instance.ml" lex rus.
 
 
