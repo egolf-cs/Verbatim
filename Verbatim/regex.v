@@ -45,6 +45,7 @@ Module DefsFn (Ty : SIGMA).
 
   Module Export Strings.
 
+    Set Warnings "-implicit-core-hint-db,-deprecated".
     Hint Resolve Sigma_dec.
     
     Definition String : Type := list Sigma.

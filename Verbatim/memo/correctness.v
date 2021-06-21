@@ -33,16 +33,16 @@ Module CorrectFn (Import MEM : memo.T).
         (Ha : Acc lt (length code))
         (Hlexy : lexy_list orig (zip Ms (map ssnd rules)))
         (Hlen : length Ms = length rules),
-        (lex'__M orig Ms rules code i Hindex Ha Hlexy Hlen =
-         (match max_of_prefs__M (max_prefs__M Ms code i rules) as mpref'
-                return max_of_prefs__M (max_prefs__M Ms code i rules) = mpref' -> _
+        (lex'_M orig Ms rules code i Hindex Ha Hlexy Hlen =
+         (match max_of_prefs_M (max_prefs_M Ms code i rules) as mpref'
+                return max_of_prefs_M (max_prefs_M Ms code i rules) = mpref' -> _
           with
           | (Ms', _, None) => fun _ => (Ms', [], code) (* Code cannot be processed further *)
           | (Ms', _, Some ([], _, _)) => fun _ => (Ms', [], code) 
           | (Ms', label, Some (ph :: pt, suffix, i')) =>
             fun Heq =>
               let Hindex' := (index_rec_call__M _ _ _ _ _ _ _ _ _ _ _ Hlexy Hlen Heq Hindex) in
-              match (lex'__M orig Ms' rules suffix i'
+              match (lex'_M orig Ms' rules suffix i'
                        Hindex'
                        (acc_recursive_call__M _ _ _ _ _ _ _ _ _ _ _ Ha Hlexy Hlen Heq Hindex Hindex')
                        (lexy_recursive_call _ _ _ _ _ _ _ _ _ _ _ Hlexy Hlen Heq Hindex Hindex')
@@ -69,14 +69,14 @@ Module CorrectFn (Import MEM : memo.T).
         (Hlen : length Ms = length rules)
         (pr : list Memo * Label * option (Prefix * Suffix * index))
         (res : list Memo * list Token * String)
-        (Heq : max_of_prefs__M (max_prefs__M Ms code i rules) = pr),
-        match pr as mpref' return max_of_prefs__M (max_prefs__M Ms code i rules) = mpref' -> _ with
+        (Heq : max_of_prefs_M (max_prefs_M Ms code i rules) = pr),
+        match pr as mpref' return max_of_prefs_M (max_prefs_M Ms code i rules) = mpref' -> _ with
         | (Ms', _, None) => fun _ => (Ms', [], code) (* Code cannot be processed further *)
         | (Ms', _, Some ([], _, _)) => fun _ => (Ms', [], code)
         | (Ms', label, Some (h :: t, suffix, i')) =>
           fun Heq =>
             let Hindex' := (index_rec_call__M _ _ _ _ _ _ _ _ _ _ _ Hlexy Hlen Heq Hindex) in
-            match (lex'__M orig Ms' rules suffix i'
+            match (lex'_M orig Ms' rules suffix i'
                          Hindex'
                          (acc_recursive_call__M _ _ _ _ _ _ _ _ _ _ _
                                               Ha Hlexy Hlen Heq Hindex Hindex')
@@ -90,14 +90,14 @@ Module CorrectFn (Import MEM : memo.T).
         -> match res with
           | (_, [], code') =>
             code' = code
-            /\ (snd (max_of_prefs__M (max_prefs__M Ms code i rules)) = None
-               \/ exists suf, snd (max_of_prefs__M (max_prefs__M Ms code i rules))
+            /\ (snd (max_of_prefs_M (max_prefs_M Ms code i rules)) = None
+               \/ exists suf, snd (max_of_prefs_M (max_prefs_M Ms code i rules))
                         = Some ([], suf, init_index (length suf)))
           | (_, (label, prefix) :: lexemes, rest) =>
             exists Ms'' Ms' h t suffix i' Hindex'
-              (Heq' : max_of_prefs__M (max_prefs__M Ms code i rules)
+              (Heq' : max_of_prefs_M (max_prefs_M Ms code i rules)
                       = (Ms', label, Some (h :: t, suffix, i'))),
-            lex'__M orig Ms' rules suffix i'
+            lex'_M orig Ms' rules suffix i'
                   Hindex'
                   (acc_recursive_call__M _ _ _ _ _ _ _ _ _ _ _
                                        Ha Hlexy Hlen Heq' Hindex Hindex')
@@ -125,18 +125,18 @@ Module CorrectFn (Import MEM : memo.T).
 
     Lemma lex'_cases__M :
       forall Ms rules code orig  i Hindex Ha Hlexy Hlen res,
-        lex'__M orig Ms rules code i Hindex Ha Hlexy Hlen = res
+        lex'_M orig Ms rules code i Hindex Ha Hlexy Hlen = res
         -> match res with
           | (_, [], code') =>
             code' = code
-            /\ (snd (max_of_prefs__M (max_prefs__M Ms code i rules)) = None
-               \/ exists suf, snd (max_of_prefs__M (max_prefs__M Ms code i rules))
+            /\ (snd (max_of_prefs_M (max_prefs_M Ms code i rules)) = None
+               \/ exists suf, snd (max_of_prefs_M (max_prefs_M Ms code i rules))
                         = Some ([], suf, init_index (length suf)))
           | (_, (label, prefix) :: lexemes, rest) =>
             exists Ms'' Ms' h t suffix i' Hindex'
-              (Heq' : max_of_prefs__M (max_prefs__M Ms code i rules)
+              (Heq' : max_of_prefs_M (max_prefs_M Ms code i rules)
                       = (Ms', label, Some (h :: t, suffix, i'))),
-            lex'__M orig Ms' rules suffix i'
+            lex'_M orig Ms' rules suffix i'
                   Hindex'
                   (acc_recursive_call__M _ _ _ _ _ _ _ _ _ _ _
                                        Ha Hlexy Hlen Heq' Hindex Hindex')
@@ -155,13 +155,13 @@ Module CorrectFn (Import MEM : memo.T).
 
   Lemma momprefs_memo_F : forall code rus l o Ms Ms' l' o' orig i,
       max_of_prefs (max_prefs code i rus) = (l, o)
-      -> max_of_prefs__M (max_prefs__M Ms code i rus) = (Ms', l', o')
+      -> max_of_prefs_M (max_prefs_M Ms code i rus) = (Ms', l', o')
       -> lexy_list orig (zip Ms (map ssnd rus))
       -> length Ms = length rus
       -> ith_suffix orig code i
       -> (l, o) = (l', o').
   Proof.
-    intros. destruct (max_prefs__M Ms code i rus) eqn:E.
+    intros. destruct (max_prefs_M Ms code i rus) eqn:E.
     eapply mprefs_memo_F in E; eauto.
     assert(A : max_prefs code i rus = l1).
     {
@@ -184,7 +184,7 @@ Module CorrectFn (Import MEM : memo.T).
                            (Ha Ha' : Acc lt (length code))
                            rus rest rest' iMs Ms Hlexy Hlen,
     lex' rus code i Hindex Ha = (ts, rest)
-    -> lex'__M orig iMs rus code i Hindex'
+    -> lex'_M orig iMs rus code i Hindex'
             Ha' Hlexy Hlen = (Ms, ts', rest')
     -> ts = ts'.
   Proof.
@@ -204,12 +204,12 @@ Module CorrectFn (Import MEM : memo.T).
         rewrite H0 in *. discriminate.
     - exfalso. destruct a. destruct H as (h & t & suffix & i' & Heq' & H).
       destruct H. destruct H0. destruct H2.
-      + destruct (max_of_prefs__M (max_prefs__M iMs code i rus)) eqn:E.
+      + destruct (max_of_prefs_M (max_prefs_M iMs code i rus)) eqn:E.
         simpl in H2. rewrite H2 in *. clear H2.
         destruct p0.
         eapply momprefs_memo_F in E; eauto.
         discriminate.
-      + destruct (max_of_prefs__M (max_prefs__M iMs code i rus)) eqn:E.
+      + destruct (max_of_prefs_M (max_prefs_M iMs code i rus)) eqn:E.
         destruct H2.
         simpl in H2. rewrite H2 in *. clear H2.
         destruct p0.
@@ -233,7 +233,7 @@ Module CorrectFn (Import MEM : memo.T).
   Lemma lex'_memo_splits : forall ts' ts code orig i Hindex Hindex__M (Ha Ha' : Acc lt (length code))
                            rus rest rest' iMs Ms Hlexy Hlen,
     lex' (map init_srule rus) code i Hindex Ha = (ts, rest)
-    -> lex'__M orig iMs (map init_srule rus) code i Hindex__M
+    -> lex'_M orig iMs (map init_srule rus) code i Hindex__M
          Ha' Hlexy Hlen = (Ms, ts', rest')
     -> code = (concat (map snd ts')) ++ rest'.
   Proof.
@@ -273,7 +273,7 @@ Module CorrectFn (Import MEM : memo.T).
   Lemma lex'_memo_eq_rest : forall code orig i Hindex Hindex' (Ha Ha' : Acc lt (length code))
                            ts rus rest ts' rest' iMs Ms Hlexy Hlen,
     lex' (map init_srule rus) code i Hindex Ha = (ts, rest)
-    -> lex'__M orig iMs (map init_srule rus) code i Hindex'
+    -> lex'_M orig iMs (map init_srule rus) code i Hindex'
          Ha' Hlexy Hlen = (Ms, ts', rest')
     -> rest = rest'.
   Proof.
@@ -290,7 +290,7 @@ Module CorrectFn (Import MEM : memo.T).
   Theorem lex'_memo_eq : forall code orig i Hindex Hindex' (Ha : Acc lt (length code))
                            ts rus rest ts' rest' Ms Hlexy Hlen,
     lex' (map init_srule rus) code i Hindex Ha = (ts, rest)
-    -> lex'__M orig (init_Memos (map init_srule rus)) (map init_srule rus) code i Hindex'
+    -> lex'_M orig (init_Memos (map init_srule rus)) (map init_srule rus) code i Hindex'
          Ha Hlexy Hlen = (Ms, ts', rest')
     -> (ts, rest) = (ts', rest').
   Proof.
@@ -304,17 +304,17 @@ Module CorrectFn (Import MEM : memo.T).
     
 
   Theorem lex_memo_eq : forall rus code,
-      lex__M rus code = lex rus code.
+      lex_M rus code = lex rus code.
   Proof.
     intros. destruct (lex rus code) eqn:E.
-    unfold lex__M. unfold lex in E.
+    unfold lex_M. unfold lex in E.
     repeat dm.
     destruct p.
     eapply lex'_memo_eq in E0; eauto.
   Qed.
 
   Theorem lex_sound__M : forall ts code rest rus,
-      lex__M rus code = (ts, rest)
+      lex_M rus code = (ts, rest)
       -> rules_is_function rus
       -> tokenized rus code ts rest.
   Proof.
@@ -324,7 +324,7 @@ Module CorrectFn (Import MEM : memo.T).
   Theorem lex_complete__M : forall ts code rest rus,
       tokenized rus code ts rest
       -> rules_is_function rus
-      -> lex__M rus code = (ts, rest).
+      -> lex_M rus code = (ts, rest).
   Proof.
     intros. rewrite lex_memo_eq in *. apply lex_complete; auto.
   Qed.
