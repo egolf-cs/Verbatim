@@ -3,7 +3,6 @@ Import ListNotations.
 
 From Verbatim Require Import ltac.
 
-
 Module Trie.
 
   Inductive Trie {Target : Type} : Type :=

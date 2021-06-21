@@ -4,8 +4,7 @@ Utils/ltac.v
 Utils/asciiFinite.v
 Utils/ascii_order.v
 Utils/Orders.v
-
-fixbin/hashtrie.v
+Utils/hashtrie.v
 
 Verbatim/regex.v
 
@@ -14,8 +13,8 @@ Verbatim/state.v
 Verbatim/matcher.v
 
 Verbatim/lexer/impl_pref.v
-Verbatim/lexer/impl.v
 Verbatim/lexer/lemmas_pref.v
+Verbatim/lexer/impl.v
 Verbatim/lexer/lemmas.v
 Verbatim/lexer/correct.v
 
@@ -30,4 +29,4 @@ Verbatim/memo/correctness.v
 
 Verbatim/memo/concrete3.v
 
-Example4.v
+Example.v
