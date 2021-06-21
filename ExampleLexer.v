@@ -18,12 +18,12 @@ From Verbatim Require Import lexer.impl.
 From Verbatim Require Import Utils.ltac.
 From Verbatim Require Import Utils.asciiFinite.
 From Verbatim Require Import Utils.ascii_order.
-From Verbatim Require Import concrete1.
+From Verbatim Require Import concrete_table.
 
 From Verbatim Require Import memo.memo.
 From Verbatim Require Import memo.impl.
 From Verbatim Require Import memo.correctness.
-From Verbatim Require Import concrete3.
+From Verbatim Require Import concrete_memo.
 
 Module Export MEM <: memo.T.
   
