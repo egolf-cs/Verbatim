@@ -6,7 +6,7 @@ Require Import Coq.Numbers.NatInt.NZOrder.
 
 From Verbatim Require Import ltac.
 From Verbatim Require Import state.
-From Verbatim Require Import lemmas_pref.
+From Verbatim Require Import lexer.lemmas_pref.
 From Verbatim Require Import impl_pref.
 
 Module ImplFn (Import ST : state.T).
