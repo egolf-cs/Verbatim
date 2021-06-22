@@ -67,8 +67,8 @@ let () = Printf.printf "%.5f\n" (time (map init_srule) rus)
 let evaluate fname =
   let code = to_chars (read_whole_file ("data/"^fname)) in
   let codes = n_copies 5 code in
-  let ts = map (time (lex__M rus)) codes in
-  let rest = (to_string (snd (lex__M rus code))) in
+  let ts = map (time (lex_M rus)) codes in
+  let rest = (to_string (snd (lex_M rus code))) in
   let rest_len = (String.length rest) in
   (fname, List.length code, ts, rest_len)
 
