@@ -31,3 +31,6 @@ Verbatim/memo/correctness.v
 Verbatim/DFA/concrete_table.v
 Verbatim/memo/concrete_memo.v
 ExampleLexer.v
+FloatLexer.v
+
+Verbatim/actions/impl.v

@@ -61,7 +61,7 @@ Module ImplFn (Import ST : state.T).
   Fixpoint max_of_prefs (mprefs : list (Label * (option (Prefix * Suffix * index))))
     : Label * option (Prefix * Suffix * index) :=
     match mprefs with
-    | [] => ([], @None (String * String * index))
+    | [] => (defLabel, @None (String * String * index))
     | p :: ps => longer_pref p (max_of_prefs ps)
     end.
 

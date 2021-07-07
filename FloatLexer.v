@@ -25,15 +25,15 @@ From Verbatim Require Import memo.impl.
 From Verbatim Require Import memo.correctness.
 From Verbatim Require Import concrete_memo.
 
-Module Export MEM <: memo.T.
+Module Import MEM <: memo.T.
   
-  Module Export STT <: state.T.
+  Module Import STT <: state.T.
     
     Module TabT <: Table.T.
       
-      Module Export R <: regex.T.
+      Module  R <: regex.T.
         
-        Module Export Ty <: SIGMA.
+        Module Import Ty <: SIGMA.
           
           Definition Sigma : Type := ascii.
           Definition SigmaEnum : list Sigma := asciiEnum.
@@ -49,45 +49,37 @@ Module Export MEM <: memo.T.
           
         End Ty.
         
-        Module Export Defs := regex.DefsFn Ty.
+        Module Import Defs := regex.DefsFn Ty.
         
       End R.
 
       Module TabTy <: TABLE R := FTable R.
 
-      Module Export Defs := DefsFn R TabTy.
+      Module Import Defs := DefsFn R TabTy.
 
     End TabT.
 
-    Module Export R := TabT.R.
+    Module Import R := TabT.R.
     Import R.Ty.
-    Export R.Defs.Helpers.
+    Import R.Defs.Helpers.
+    Import R.Defs.
     
-    Module Export Ty <: STATE R.
+    Module Import Ty <: STATE R.
 
-      Module Export D := DFAFn TabT. 
-
+      Module Import D := DFAFn TabT.
+      
 
       Inductive Label' : Type :=
       | INT
-      | FLOAT
-      | STRING
-      | TRUE
-      | FALSE
-      | NULL
-      | COLON
-      | COMMA
-      | LEFT_BRACKET
-      | RIGHT_BRACKET
-      | LEFT_BRACE
-      | RIGHT_BRACE 
-      | WS.
+      | PNT
+      | DEC
+      | EXP.
 
-      Definition Label : Type := Label'.
-      Definition defLabel : Label := WS.
+      Definition Label := Label'.
+      Definition defLabel : Label := INT.
       Lemma Label_eq_dec : forall (l l' : Label), {l = l'} + {l <> l'}.
       Proof. decide equality. Qed.
-      
+
       Definition Pointer : Type := regex.
       Definition defPointer : Pointer := EmptySet.
       Definition Delta : Type := TabT.TabTy.Table * TabT.R.Defs.reFS.t.
@@ -307,22 +299,30 @@ Module Export MEM <: memo.T.
       
     End Ty.
     
-    Module Export Defs := state.DefsFn R Ty.
+    Module Import Defs := state.DefsFn R Ty.
 
   End STT.
 
-  Module Export MemTy <: MEMO STT := FMemo STT.
+  Module Import MemTy <: MEMO STT := FMemo STT.
 
-  Module Export Defs := memo.MemoDefsFn STT MemTy.
+  Module Import Defs := memo.MemoDefsFn STT MemTy.
 
 End MEM.
 
 Import MEM.STT.
+Import MEM.STT.Defs.
+Import MEM.STT.Ty.
 Module L := memo.impl.ImplFn MEM.
 Import L.
+Import L.IMPL.Lex.
 Module C := memo.correctness.CorrectFn MEM.
 Import C.
+Import MEM.STT.R.Defs.
+Import MEM.STT.R.Defs.Helpers.
+Import MEM.STT.R.Ty.
 
+
+(*** Helpers ***)
 Definition toS (z : string) : String := list_ascii_of_string z.
 Definition Sig_of_N (n : nat) : Sigma := ascii_of_nat 65.
 Fixpoint range' (n : nat) : (list nat) :=
@@ -332,12 +332,6 @@ Fixpoint range' (n : nat) : (list nat) :=
   end.
 
 Fixpoint range (n1 n2 : nat) : (list nat) := map (plus n1) (range' (n2 - n1 + 1)).
-
-(*** White Space ***)
-(* [ \t\n\r] *)
-Definition chars_ws := map Char (map ascii_of_nat [9;10;13;32]).
-Definition ru_ws : Rule := (WS, Plus (IterUnion chars_ws)).
-(**)
 
 (*** Numbers ***)
 (* [0-9] *)
@@ -355,79 +349,39 @@ Definition regex_zero := Char (ascii_of_nat 48).
 Definition regex_nzero := App regex_nz_digit (Star regex_digit).
 Definition regex_nat := Union regex_zero regex_nzero.
 
-(* '-'? *)
 Definition regex_sign := Char (ascii_of_nat 45).
 Definition regex_sign_option := Optional regex_sign.
-(* ('.' [0-9] +)? *)
-Definition regex_dec_point := Char (ascii_of_nat 46).
-Definition regex_dec := App regex_dec_point (Plus regex_digit).
-Definition regex_dec_option := Optional regex_dec.
-(* fragment EXP : [Ee] [+\-]? INT *)
-Definition regex_Ee := Union (Char (ascii_of_nat 69)) (Char (ascii_of_nat 101)).
-Definition regex_pm := Union (Char (ascii_of_nat 43)) (Char (ascii_of_nat 45)).
-Definition regex_pm_option := Optional regex_pm.
-Definition regex_exp := IterApp [regex_Ee;regex_pm_option;regex_nat].
-Definition regex_exp_option := Optional regex_exp.
-
-(* NUMBER : '-'? INT ('.' [0-9] +)? EXP? *)
-Definition regex_float := IterApp [regex_sign_option;regex_nat;regex_dec_option;regex_exp_option].
-Definition ru_float := (FLOAT, regex_float).
 
 Definition regex_int := IterApp [regex_sign_option;regex_nat].
 Definition ru_int := (INT, regex_int).
 
-(**)
-
-(*** STRING ***)
-Definition ascii_lower := range 97 122.
-Definition chars_lower := map Char (map ascii_of_nat ascii_lower).
-Definition regex_lower := IterUnion chars_lower.
-Definition ascii_upper := range 65 90.
-Definition chars_upper := map Char (map ascii_of_nat ascii_upper).
-Definition regex_upper := IterUnion chars_upper.
-(* not sure what to include for punctuation, but here's almost all of it. *)
-(* Maybe too much, and no consideration for escaping characters. *)
-(* In theory this is meant to support unicode... *)
-Definition ascii_punc : (list nat) := [32;33] ++ (range 35 47) ++ (range 58 64) ++ (range 91 96) ++ (range 123 126).
-Definition chars_punc := map Char (map ascii_of_nat ascii_punc).
-Definition regex_punc := IterUnion chars_punc.
-Definition regex_char := IterUnion [regex_lower;regex_upper;regex_digit;regex_punc].
-Definition regex_par := Char (ascii_of_nat 34).
-(* ru_string *)
-Definition regex_string := IterApp [regex_par;(Star regex_char);regex_par].
-Definition ru_string := (STRING, regex_string).
-(**)
-
-(*** keywords ***)
-Definition regex_true := IterApp (map Char (toS "true")).
-Definition ru_true := (TRUE, regex_true).
-Definition regex_false := IterApp (map Char (toS "false")).
-Definition ru_false := (FALSE, regex_false).
-Definition regex_null := IterApp (map Char (toS "null")).
-Definition ru_null := (NULL, regex_null).
-
-(*** brack, brace, colon, comma ***)
-Definition regex_colon := IterApp (map Char (toS ":")).
-Definition ru_colon := (COLON, regex_colon).
-Definition regex_comma := IterApp (map Char (toS ",")).
-Definition ru_comma := (COMMA, regex_comma).
-Definition regex_lbrack := IterApp (map Char (toS "[")).
-Definition ru_lbrack := (LEFT_BRACKET, regex_lbrack).
-Definition regex_rbrack := IterApp (map Char (toS "]")).
-Definition ru_rbrack := (RIGHT_BRACKET, regex_rbrack).
-Definition regex_lbrace := IterApp (map Char (toS "{")).
-Definition ru_lbrace := (LEFT_BRACE, regex_lbrace).
-Definition regex_rbrace := IterApp (map Char (toS "}")).
-Definition ru_rbrace := (RIGHT_BRACE, regex_rbrace).
 
 
-(*** Compile rules and export ***)
-Definition rus : list Rule := [ru_ws;ru_int;ru_string;ru_true;ru_false;ru_null;ru_colon;ru_comma;ru_lbrack;ru_rbrack;ru_lbrace;ru_rbrace].
+Definition regex_dec_point := Char (ascii_of_nat 46).
+Definition ru_dec_point := (PNT, regex_dec_point).
 
-Definition lex := lex_M.
-Definition lex' := lex'_M.
+Definition regex_dec := Plus regex_digit.
+Definition ru_dec := (DEC, regex_dec).
 
-Set Warnings "-extraction-opaque-accessed,-extraction".
-Extraction "Evaluation/instance.ml" lex rus.
+Definition regex_Ee := Union (Char (ascii_of_nat 69)) (Char (ascii_of_nat 101)).
+Definition regex_plus_option := Optional (Char (ascii_of_nat 43)).
+Definition regex_Ee_delim := App regex_plus_option regex_Ee.
+(* matches e, E, e+, E+ *)
+Definition ru_Ee_delim := (EXP, regex_Ee_delim).
 
+
+Definition rules : list Rule := [ru_int;ru_dec_point;ru_dec;ru_Ee_delim].
+
+Module Splitter.
+  
+  Definition Split_float_str (z : String) : option (String * String * String) :=
+    match lex_M rules z with
+    | ([(INT,i)], []) => Some (i, [], [])
+    | ([(INT,i);(PNT,_);(DEC,d)], []) => Some (i, d, [])
+    | ([(INT,i);(EXP,_);(INT,e)], []) => Some (i, [], e)
+    | ([(INT,i);(PNT,_);(DEC,d);(EXP,_);(INT,e)], []) => Some (i, d, e)
+    | _ => None
+    end.
+
+End Splitter.
 

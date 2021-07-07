@@ -12,13 +12,33 @@ Module Type STATE (Import R : regex.T).
 
   Import R.Ty.
 
+  (*** Core ***)
+
+  (* The labels for lexical rules; this should probably be defined somewhere else *)
+  Parameter Label : Type.
+  Parameter Label_eq_dec : forall (l l' : Label), {l = l'} + {l <> l'}.
+  Parameter defLabel : Label.
+
+  (* Pointers are like state-labels for state machines *)
   Parameter Pointer : Type.
   Parameter defPointer : Pointer.
+  Parameter pointer_compare : Pointer -> Pointer -> comparison.
+  Parameter pointer_compare_eq : forall x y,
+      pointer_compare x y = Eq <-> x = y.
+  Parameter pointer_compare_trans : forall c x y z,
+      pointer_compare x y = c -> pointer_compare y z = c -> pointer_compare x z = c.
+
+  (* Delta is some mechanism for transitioning, like a transition table *)
   Parameter Delta : Type.
   Parameter defDelta : Delta.
+
+  (* A State tells you where you are in the machine and how to transition *)
   Definition State : Type := prod Pointer Delta.
   Definition defState : State := (defPointer, defDelta).
+  
 
+  
+  (*** Index ***)
   Parameter index : Type.
   Parameter index0 : index.
   Parameter index_eq_dec : forall (i ii : index), {i = ii} + {i <> ii}.
@@ -37,7 +57,8 @@ Module Type STATE (Import R : regex.T).
   Parameter incr_is_S : forall n, init_index (S n) = incr (init_index n).
   Parameter n_det_index : forall n1 n2, init_index n1 = init_index n2 -> n1 = n2.
                                                                    
-  
+
+  (*** State Machine ***)
   Parameter transition : Sigma -> State -> State.
   Parameter transition_list : list Sigma -> State -> State.
   Parameter transition_list_nil : forall fsm,
@@ -67,13 +88,6 @@ Module Type STATE (Import R : regex.T).
   Parameter accepts_matches : forall(s : String) (e : regex),
       true = accepts s (init_state e) <-> exp_match s e.
   
-  Parameter pointer_compare : Pointer -> Pointer -> comparison.
-
-  Parameter pointer_compare_eq : forall x y,
-      pointer_compare x y = Eq <-> x = y.
-
-  Parameter pointer_compare_trans : forall c x y z,
-      pointer_compare x y = c -> pointer_compare y z = c -> pointer_compare x z = c.
 
 
 
@@ -84,6 +98,8 @@ Module DefsFn (R : regex.T) (Ty : STATE R).
   Import Ty.
   Import R.Defs.
   Import R.Ty.
+
+    
 
   Module Pointer_as_UCT <: UsualComparableType.
     Definition t := Pointer.
@@ -103,7 +119,6 @@ Module DefsFn (R : regex.T) (Ty : STATE R).
   
   Module Export Coredefs.
     
-    Definition Label : Type := String.
     Definition Prefix : Type := String.
     Definition Suffix : Type := String.
     Definition Token : Type := Label * Prefix.
@@ -185,14 +200,14 @@ Module DefsFn (R : regex.T) (Ty : STATE R).
           (Hex : In (l, r) rus)
           (Hmpref : re_max_pref code r p)
           (* We can't produce longer prefixes from other rules *)
-          (Hout : forall(l' : String) (r' : regex) (p' : String),
+          (Hout : forall(l' : Label) (r' : regex) (p' : String),
               length p' > length p
               -> re_max_pref code r' p'
               -> ~(In (l',r') rus)
           )
           (* If we can produce the prefix in some other way,
            the rule used to do so most come later in the list *)
-          (Hlater : forall(r' : regex) (l' : String),
+          (Hlater : forall(r' : regex) (l' : Label),
               earlier_rule (l',r') (l, r) rus
               -> In (l', r') rus
               -> ~(re_max_pref code r' p)
@@ -229,7 +244,7 @@ Module DefsFn (R : regex.T) (Ty : STATE R).
     Lemma ru_dec : forall (ru1 ru2 : Rule), {ru1 = ru2} + {ru1 <> ru2}.
     Proof.
       intros. destruct ru1. destruct ru2.
-      destruct (String_dec l l0); destruct (regex_dec r r0); subst; auto;
+      destruct (Label_eq_dec l l0); destruct (regex_dec r r0); subst; auto;
         right; intros C; destruct n; inv C; auto.
     Qed.
 

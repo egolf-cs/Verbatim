@@ -337,8 +337,8 @@ Module ImplFn (Import MEM : memo.T).
         -> length Ms' = length Ms
         -> n < length Ms'
         -> max_prefs_M Ms code i rules = (Ms', l0)
-        -> nth n l0 ([], None) = (label, o)
-        -> nth n rules ([], defState) = (label', ru)
+        -> nth n l0 (defLabel, None) = (label, o)
+        -> nth n rules (defLabel, defState) = (label', ru)
         -> label = label'.
       Proof.
         induction m; intros; destruct Ms; destruct rules; destruct Ms'; destruct l0; destruct n;
@@ -358,8 +358,8 @@ Module ImplFn (Import MEM : memo.T).
           -> length Ms = length rules
           -> n < length Ms'
           -> max_prefs_M Ms code i rules = (Ms', l0)
-          -> nth n l0 ([], None) = (label, o)
-          -> nth n rules ([], defState) = (label', ru)
+          -> nth n l0 (defLabel, None) = (label, o)
+          -> nth n rules (defLabel, defState) = (label', ru)
           -> label = label'.
       Proof.
         intros.
@@ -371,8 +371,8 @@ Module ImplFn (Import MEM : memo.T).
           max_prefs_M Ms code i rules = (Ms', l0)
           -> length Ms = length rules
           -> n < length Ms'
-          -> nth n l0 ([], None) = (label, o)
-          -> nth n rules ([], defState) = (label', ru)
+          -> nth n l0 (defLabel, None) = (label, o)
+          -> nth n rules (defLabel, defState) = (label', ru)
           -> label = label'.
       Proof.
         intros. eapply nth_labels_match'; eauto.
@@ -387,8 +387,8 @@ Module ImplFn (Import MEM : memo.T).
           -> n < length Ms'
           -> nth n Ms emptyMemo = M
           -> nth n Ms' emptyMemo = M'
-          -> nth n l0 ([], None) = (label, o)
-          -> nth n rules ([], defState) = (label, ru)
+          -> nth n l0 (defLabel, None) = (label, o)
+          -> nth n rules (defLabel, defState) = (label, ru)
           -> max_pref_fn_M M code i ru = (M', o).
       Proof.
         induction n; intros; destruct Ms; destruct Ms'; destruct l0; destruct rules;
@@ -582,11 +582,11 @@ Module ImplFn (Import MEM : memo.T).
         assert(exists M, nth n Ms emptyMemo = M).
         { eexists; eauto. }
         destruct H7 as [M].
-        assert(exists label o, nth n l0 ([], None) = (label, o)).
-        { destruct (nth n l0 ([], None)). eexists; eauto. }
+        assert(exists label o, nth n l0 (defLabel, None) = (label, o)).
+        { destruct (nth n l0 (defLabel, None)). eexists; eauto. }
         destruct H8 as [label]. destruct H8 as [o].
-        assert(exists label' ru, nth n rules ([], defState) = (label', ru)).
-        { destruct (nth n rules ([], defState)). eexists; eauto. }
+        assert(exists label' ru, nth n rules (defLabel, defState) = (label', ru)).
+        { destruct (nth n rules (defLabel, defState)). eexists; eauto. }
         destruct H9 as [label']. destruct H9 as [ru].
         assert(label = label').
         {
