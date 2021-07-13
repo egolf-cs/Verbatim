@@ -41,12 +41,15 @@ match times with
 
 let times_to_string times = Printf.sprintf "[%s]" (times_to_string' times)
 
+let tokens_len_str ts = List.length ts
+
 let rec print_evaluation results =
 match results with
-| fname, code_len, ts, rest_len ->
+| fname, code_len, ts, rest_len, tokens ->
   let oc = open_out ("results/"^fname) in
+  let tokens_len = tokens_len_str tokens in
   let ts' = times_to_string ts in
-  Printf.fprintf oc "{\n\"fname\":\"%s\",\n \"input_len\":%d,\n \"times\":%s,\n \"rest_len\":%d\n}" fname code_len ts' rest_len;
+  Printf.fprintf oc "{\n\"fname\":\"%s\",\n \"input_len\":%d,\n \"times\":%s,\n \"rest_len\":%d,\n \"tokens_len\":%d\n}" fname code_len ts' rest_len tokens_len;
   close_out oc
 
 let time f x =
@@ -68,9 +71,11 @@ let evaluate fname =
   let code = to_chars (read_whole_file ("data/"^fname)) in
   let codes = n_copies 5 code in
   let ts = map (time (lex_M rus)) codes in
-  let rest = (to_string (snd (lex_M rus code))) in
+  let res = lex_M rus code in
+  let tokens = fst res in
+  let rest = to_string (snd res) in
   let rest_len = (String.length rest) in
-  (fname, List.length code, ts, rest_len)
+  (fname, List.length code, ts, rest_len, tokens)
 
 let xs = Array.to_list (Sys.readdir "data")
 let ps = map (fun x -> (print_evaluation (evaluate x))) xs

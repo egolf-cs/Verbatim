@@ -65,10 +65,11 @@ Module SemLexerFn (STT : state.T) (Export LXR : LEXER STT) (Import USER : SEM_US
                (* The rest of the tokens match the rest of the input *)
                (IH : tokenized_sem' rus (s0 ++ s1) ts s1) :
         tokenized_sem' rus (p ++ s0 ++ s1) (t :: ts) s1.
+      
 
     Inductive tokenized_sem (rus : list Rule) : String -> (option (list sem_token))
                                                 -> String -> Prop :=
-      (* The Some case really needs some work, probably another predicate *)
+      (* The Some case really needs some work  *)
     | Tkd_sem_Some (code rest : String) (ts : list Token) (sts : list sem_token)
                    (n : nat) (st st' : sem_token) (t : Token)
                    (H0 : tokenized rus code ts rest)

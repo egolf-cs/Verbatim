@@ -6,15 +6,21 @@ Open Scope string_scope.
 Require Import Ascii.
 
 Require Import BinInt.
-Require Import PrimFloat.
+
+(*Require Import PrimFloat.
+Require Import Int63.
+
+Require Extraction.
+Require ExtrOCamlInt63.
+Require ExtrOCamlFloats.*)
 
 Require Import DecimalString.
 Import NilEmpty.
 
-From Verbatim Require ExampleLexer.
+From Verbatim Require Import ExampleLexer.
 Import ExampleLexer.MEM.STT.R.Defs.
-From Verbatim Require FloatLexer.
-Import FloatLexer.Splitter.
+(*From Verbatim Require FloatLexer.
+Import FloatLexer.Splitter.*)
 From Verbatim Require Import actions.impl.
 
 From Verbatim Require Import ltac.
@@ -35,7 +41,7 @@ Module USER <: SEM_USER STT.
   Definition sem_ty (l : Label) : Type :=
     match l with
     | INT => Z
-    | FLOAT => float
+    | FLOAT => Z
     | STRING => string
     | TRUE => unit
     | FALSE => unit
@@ -95,7 +101,7 @@ Module USER <: SEM_USER STT.
     end.
 
 
-
+  (*
   Fixpoint float_exp_pos (f : float) (n : nat) : float :=
     match n with
     | 0 => 1%float
@@ -177,7 +183,8 @@ Module USER <: SEM_USER STT.
 
   Definition toS (z : string) : String := list_ascii_of_string z.
   Compute (String2float' (Some (toS "0", toS "3", toS "1"))).
-                   
+   *)
+
   
   Definition apply_sem (pr : Label * String) : option {l : Label & sem_ty l} :=
     match pr with
@@ -187,15 +194,14 @@ Module USER <: SEM_USER STT.
       | None => None
       end
     | (FLOAT, z) => 
-      match (String2float z) with
+      match (String2int z) with
       | Some i => Some (existT sem_ty FLOAT i)
       | None => None
       end
-    | (STRING, z) => Some (existT _ STRING "")  
+    | (STRING, z) => Some (existT _ STRING (string_of_list_ascii z)) 
     | (L, _)      => Some (existT _ L tt)
     end.
 
-  Compute (apply_sem (INT, toS "-3")).
 
   Lemma label_carries : forall l l' s t,
       apply_sem (l, s) = Some (existT sem_ty l' t)
@@ -209,3 +215,6 @@ End USER.
 Module Import SemLexer := SemLexerFn STT LXR USER.
 Import SemLexer.Impl.
 
+
+Set Warnings "-extraction-opaque-accessed,-extraction".
+Extraction "../../Evaluation/semantic/instance.ml" lex_sem rus.

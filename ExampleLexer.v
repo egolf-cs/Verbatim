@@ -422,12 +422,12 @@ Definition ru_rbrace := (RIGHT_BRACE, regex_rbrace).
 
 
 (*** Compile rules and export ***)
-Definition rus : list Rule := [ru_ws;ru_int;ru_string;ru_true;ru_false;ru_null;ru_colon;ru_comma;ru_lbrack;ru_rbrack;ru_lbrace;ru_rbrace].
+Definition rus : list Rule := [ru_ws;ru_int;ru_float;ru_string;ru_true;ru_false;ru_null;ru_colon;ru_comma;ru_lbrack;ru_rbrack;ru_lbrace;ru_rbrace].
 
 Definition lex := lex_M.
 Definition lex' := lex'_M.
 
 Set Warnings "-extraction-opaque-accessed,-extraction".
-Extraction "Evaluation/instance.ml" lex rus.
+Extraction "Evaluation/literal/instance.ml" lex rus.
 
 
