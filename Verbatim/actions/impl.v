@@ -61,7 +61,8 @@ Module SemLexerFn (STT : state.T) (Export LXR : LEXER STT) (Import USER : SEM_US
     | Tkd_sem_Some (code rest : String) (ts : list Token) (sts : list sem_token)
                    (H0 : tokenized rus code ts rest)
                    (H1 : length ts = length sts)
-                   (H2 : forall t st,  In (t, st) (combine ts sts) -> apply_sem t = Some st)
+                   (H2 : forall t st,  In (t, st) (combine ts sts)
+                                  -> apply_sem t = Some st)
       : tokenized_sem rus code (Some sts) rest
     | Tkd_sem_None (code rest : String) (ts : list Token)
         (H : tokenized rus code ts rest)
@@ -177,6 +178,28 @@ Module SemLexerFn (STT : state.T) (Export LXR : LEXER STT) (Import USER : SEM_US
       }
     Qed.
 
+    Lemma In_combine_lo2ol_map : forall ts sts,
+        (forall (t : Token) (st : sem_token), In (t, st) (combine ts sts)
+                                         -> apply_sem t = Some st)
+        -> length ts = length sts
+        -> Some sts = lo2ol (map apply_sem ts).
+    Proof.
+      induction ts; destruct sts; try (sis; omega); auto; intros.
+      inv H0. apply IHts in H2.
+      - sis. repeat dm.
+        + repeat inj_all. specialize (H a s).
+          assert((a, s) = (a, s) \/ In (a, s) (combine ts l)).
+          { auto. }
+          apply H in H0. rewrite E in *. inv H0. auto.
+        + discriminate.
+        + specialize (H a s).
+          assert((a, s) = (a, s) \/ In (a, s) (combine ts sts)).
+          { auto. }
+          apply H in H0. rewrite H0 in *. discriminate. 
+      - intros. apply H. simpl. auto.
+    Qed.
+        
+
   End Lemmas.
 
   Module Correct.
@@ -220,8 +243,8 @@ Module SemLexerFn (STT : state.T) (Export LXR : LEXER STT) (Import USER : SEM_US
           rewrite H2 in H5. repeat inj_all. auto.
         }
         destruct H. subst. clear H2 H5 rus code H0.
-        induction ts0; destruct sts; destruct sts0; try omega.
-        +  
+        apply In_combine_lo2ol_map in H7; auto. apply In_combine_lo2ol_map in H4; auto.
+        rewrite <- H7 in *. rewrite H4. auto.
       - assert(ts = ts0 /\ rest = s).
         {
           apply lex_complete in H2; auto. apply lex_complete in H; auto.
@@ -238,7 +261,29 @@ Module SemLexerFn (STT : state.T) (Export LXR : LEXER STT) (Import USER : SEM_US
           in H3.
         eapply nth_In in H8. rewrite H3 in H8.
         apply H4 in H8. rewrite H6 in *. rewrite H8 in *. discriminate.
-      - 
+      - assert(ts = ts0 /\ rest = s).
+        {
+          apply lex_complete in H2; auto. apply lex_complete in H3; auto.
+          rewrite H2 in H3. repeat inj_all. auto.
+        }
+        destruct H. subst. destruct Hin. destruct H.
+        apply In_nth with (d := (defLabel, [])) in H.
+        destruct H. destruct H.
+        assert(nth x0 sts defSemToken = nth x0 sts defSemToken).
+        { auto. }
+        assert(x0 < length (combine ts0 sts)).
+        { rewrite combine_length. rewrite <- H4. rewrite Nat.min_id. auto. }
+        eapply combine_nth with (n := x0) (x := (defLabel, [])) (y := defSemToken)
+          in H4.
+        eapply nth_In in H8. rewrite H4 in H8.
+        rewrite H6 in H8. apply H5 in H8. rewrite H1 in *. discriminate.
+      - assert(ts = ts0 /\ rest = s).
+        {
+          apply lex_complete in H2; auto. apply lex_complete in H; auto.
+          rewrite H2 in H. repeat inj_all. auto.
+        }
+        destruct H1. subst. auto.
+    Qed.
           
 
     Theorem lex_sem_complete : forall o code rest rus,  
