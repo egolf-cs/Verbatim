@@ -53,6 +53,7 @@ match results with
   let sem_tokens_len = sem_tokens_len_str tokens in
   let ts' = times_to_string ts in
   Printf.fprintf oc "{\n\"fname\":\"%s\",\n \"input_len\":%d,\n \"times\":%s,\n \"rest_len\":%d,\n \"sem_tokens_len\":\"%s\"\n}" fname code_len ts' rest_len sem_tokens_len;
+  (* Printf.fprintf oc "{\n\"fname\":\"%s\",\n \"input_len\":%d,\n \"times\":%s,\n \"rest_len\":%d\n}" fname code_len ts' rest_len; *)
   close_out oc
 
 let time f x =

@@ -34,3 +34,4 @@ ExampleLexer.v
 FloatLexer.v
 
 Verbatim/actions/impl.v
+Verbatim/actions/instance.v

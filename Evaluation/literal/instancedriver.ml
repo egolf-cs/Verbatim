@@ -50,6 +50,7 @@ match results with
   let tokens_len = tokens_len_str tokens in
   let ts' = times_to_string ts in
   Printf.fprintf oc "{\n\"fname\":\"%s\",\n \"input_len\":%d,\n \"times\":%s,\n \"rest_len\":%d,\n \"tokens_len\":%d\n}" fname code_len ts' rest_len tokens_len;
+  (* Printf.fprintf oc "{\n\"fname\":\"%s\",\n \"input_len\":%d,\n \"times\":%s,\n \"rest_len\":%d\n}" fname code_len ts' rest_len; *)
   close_out oc
 
 let time f x =
@@ -62,10 +63,10 @@ match n with
 | 0 -> []
 | _ -> x :: (n_copies (n-1) x)
 
-let srus = map init_srule rus
+(* let srus = map init_srule rus *)
 (*let lex_pre orig = lex'__M orig (init_Memos srus) srus
 let lex_pre = lex' srus *)
-let () = Printf.printf "%.5f\n" (time (map init_srule) rus)
+(* let () = Printf.printf "%.5f\n" (time (map init_srule) rus) *)
 
 let evaluate fname =
   let code = to_chars (read_whole_file ("data/"^fname)) in

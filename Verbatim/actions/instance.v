@@ -217,4 +217,4 @@ Import SemLexer.Impl.
 
 
 Set Warnings "-extraction-opaque-accessed,-extraction".
-Extraction "../../Evaluation/semantic/instance.ml" lex_sem rus.
+Extraction "Evaluation/semantic/instance.ml" lex_sem rus.
