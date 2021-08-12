@@ -3,6 +3,7 @@
 Utils/ltac.v
 Utils/asciiFinite.v
 Utils/ascii_order.v
+Utils/asciiSigma.v
 Utils/Orders.v
 Utils/hashtrie.v
 
@@ -29,9 +30,16 @@ Verbatim/memo/correctness.v
 
 
 Verbatim/DFA/concrete_table.v
+Verbatim/DFA/concrete_state.v
 Verbatim/memo/concrete_memo.v
-ExampleLexer.v
-FloatLexer.v
 
+
+Verbatim/lexer/abstraction.v
+Verbatim/memo/concrete_lexer.v
 Verbatim/actions/impl.v
-Verbatim/actions/instance.v
+
+Examples/_Utils/Lexer.v
+
+Examples/JSON/Lexer/Literal.v
+Examples/JSON/Lexer/FloatLexer.v
+Examples/JSON/Lexer/Semantic.v

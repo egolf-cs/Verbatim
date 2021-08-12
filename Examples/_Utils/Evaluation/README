@@ -1,0 +1,6 @@
+This folder: contains files that are common to all performance evaluations.
+
+These files:
+1) plot.py
+-- Plots the results and performs a linear regression
+-- Usage:

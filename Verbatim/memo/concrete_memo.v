@@ -76,3 +76,10 @@ Module FMemo (STT : state.T) <: MEMO STT.
   
 
 End FMemo.
+
+
+Module memoTFn (STT' : state.T) <: memo.T.
+  Module STT := STT'.
+  Module MemTy <: MEMO STT := FMemo STT.
+  Module Defs := memo.MemoDefsFn STT MemTy.
+End memoTFn.

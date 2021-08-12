@@ -2,11 +2,20 @@ Require Import List.
 Import ListNotations.
 
 Require Import FSets FSets.FMapAVL FSets.FMapFacts.
+Require Import Coq.ZArith.BinInt.
 
 From Verbatim Require Import ltac.
 From Verbatim Require Import regex.
 From Verbatim Require Import Orders.
 
+
+Module Type LABEL.
+
+  Parameter Label : Type.
+  Parameter defLabel : Label.
+  Parameter Label_eq_dec : forall (l l' : Label), {l = l'} + {l <> l'}.
+
+End LABEL.
 
 Module Type STATE (Import R : regex.T).
 
@@ -88,18 +97,14 @@ Module Type STATE (Import R : regex.T).
   Parameter accepts_matches : forall(s : String) (e : regex),
       true = accepts s (init_state e) <-> exp_match s e.
   
-
-
-
 End STATE.
+
 
 Module DefsFn (R : regex.T) (Ty : STATE R).
 
   Import Ty.
   Import R.Defs.
   Import R.Ty.
-
-    
 
   Module Pointer_as_UCT <: UsualComparableType.
     Definition t := Pointer.
@@ -249,8 +254,8 @@ Module DefsFn (R : regex.T) (Ty : STATE R).
     Qed.
 
     Lemma accepting_nilmatch : forall e,
-      true = accepting (init_state e)
-      <-> exp_match [] e.
+        true = accepting (init_state e)
+        <-> exp_match [] e.
     Proof.
       intros. split; intros.
       - rewrite accepts_nil in H. rewrite accepts_matches in H. auto.

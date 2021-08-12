@@ -1,0 +1,8 @@
+This folder: contains files that are common to JSON performance evaluations
+
+These files:
+1) GDP*.json -- This is the benchmarking data
+2) data.py
+-- This file takes a large JSON file like GDP.json and converts it into many
+    smaller but progressively larger files
+-- Usage:

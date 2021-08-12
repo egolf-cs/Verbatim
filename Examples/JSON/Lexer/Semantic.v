@@ -6,36 +6,36 @@ Open Scope string_scope.
 Require Import Ascii.
 
 Require Import BinInt.
-
+Require Import DecimalString.
+Import NilEmpty.
+(** < Float stuff; doesn't extract **)
 (*Require Import PrimFloat.
 Require Import Int63.
 
 Require Extraction.
 Require ExtrOCamlInt63.
-Require ExtrOCamlFloats.*)
+Require ExtrOCamlFloats.
 
-Require Import DecimalString.
-Import NilEmpty.
-
-From Verbatim Require Import ExampleLexer.
-Import ExampleLexer.MEM.STT.R.Defs.
-(*From Verbatim Require FloatLexer.
-Import FloatLexer.Splitter.*)
-From Verbatim Require Import actions.impl.
+From Verbatim Require FloatLexer.
+Import FloatLexer.Splitter.
+ *)
+(**/> **)
 
 From Verbatim Require Import ltac.
 
+(** < Core imports **)
+From Verbatim Require Import lexer.abstraction.
+From Verbatim Require Import JSON.Lexer.Literal.
+From Verbatim Require Import actions.impl.
+From Verbatim Require Import _Utils.Lexer.
+(** /> **)
 
-Module Import STT <: state.T := ExampleLexer.MEM.STT.
-
-Module Import LXR <: LEXER STT.
-
-  Definition lex := ExampleLexer.C.IMPL.Lex.lex_M.
-  Definition lex_sound := ExampleLexer.C.lex_sound__M.
-  Definition lex_complete := ExampleLexer.C.lex_complete__M.
-
-End LXR.
-
+(** This is where the user defines
+   1) sem_ty -- which maps labels to types
+   2) apply_sem -- which tries to map tokens to semantic tokens
+   3) defLiteral -- of type sem_ty defLabel -- which is the "default" value of that type
+   4) label_carries -- a proof that apply_sem does not change the label of the token
+ **)
 Module USER <: SEM_USER STT.
 
   Definition sem_ty (l : Label) : Type :=
@@ -55,17 +55,15 @@ Module USER <: SEM_USER STT.
     | WS => unit
     end.
 
-
-  Set Printing All.
-  Compute "0".
-  Compute "-".
-  Unset Printing All.
+  (* Need to define a default value for nth *)
+  (* defLabel was defined in Literal.v *)
+  Definition defLiteral : sem_ty defLabel := tt.
 
   (* Doesn't check for leading 0 or -0 *)
   Definition String2uint' (z : String) : option Z :=
     match z with
     | [] => None
-    | _ =>        
+    | _ =>
       match uint_of_string (string_of_list_ascii z) with
       | None => None
       | Some x => Some (Z.of_uint x)
@@ -76,13 +74,14 @@ Module USER <: SEM_USER STT.
   Definition String2int' (z : String) : option Z :=
     match z with
     | [] => None
-    | _ =>        
+    | _ =>
       match int_of_string (string_of_list_ascii z) with
       | None => None
       | Some x => Some (Z.of_int x)
       end
     end.
 
+  (* Checks for 0 and -0 *)
   Definition String2int (z : String) : option Z :=
     match z with
     (* Just a 0 *)
@@ -100,7 +99,7 @@ Module USER <: SEM_USER STT.
     | _ => String2int' z
     end.
 
-
+  (** Float stuff, could not extract **)
   (*
   Fixpoint float_exp_pos (f : float) (n : nat) : float :=
     match n with
@@ -114,7 +113,7 @@ Module USER <: SEM_USER STT.
     | Zpos n => float_exp_pos f (Pos.to_nat n)
     | Zneg n => 1%float / float_exp_pos f (Pos.to_nat n)
     end.
-    
+
   Definition String2float' (o : option (String * String * String)) : option float :=
     match o with
     | Some (i, [], []) =>
@@ -138,7 +137,7 @@ Module USER <: SEM_USER STT.
         end
       | None => None
       end
-    | Some (i, [], e) => 
+    | Some (i, [], e) =>
       match String2int i with
       | Some i' =>
         match String2int e with
@@ -151,7 +150,7 @@ Module USER <: SEM_USER STT.
         end
       | None => None
       end
-    | Some (i, d, e) => 
+    | Some (i, d, e) =>
       match String2int i with
       | Some i' =>
         match String2uint' d with
@@ -177,15 +176,15 @@ Module USER <: SEM_USER STT.
     | _ => None
     end.
 
-  (* This is probably not super safe *)
   Definition String2float (z : String) : option float :=
     String2float' (Split_float_str z).
 
   Definition toS (z : string) : String := list_ascii_of_string z.
   Compute (String2float' (Some (toS "0", toS "3", toS "1"))).
    *)
+  (** End float stuff **)
 
-  
+
   Definition apply_sem (pr : Label * String) : option {l : Label & sem_ty l} :=
     match pr with
     | (INT, z) =>
@@ -193,12 +192,12 @@ Module USER <: SEM_USER STT.
       | Some i => Some (existT sem_ty INT i)
       | None => None
       end
-    | (FLOAT, z) => 
+    | (FLOAT, z) =>
       match (String2int z) with
       | Some i => Some (existT sem_ty FLOAT i)
       | None => None
       end
-    | (STRING, z) => Some (existT _ STRING (string_of_list_ascii z)) 
+    | (STRING, z) => Some (existT _ STRING (string_of_list_ascii z))
     | (L, _)      => Some (existT _ L tt)
     end.
 
@@ -209,12 +208,14 @@ Module USER <: SEM_USER STT.
   Proof.
     intros. destruct l; destruct l'; auto; sis; repeat dm; repeat inj_all; discriminate.
   Qed.
-    
+
 End USER.
 
-Module Import SemLexer := SemLexerFn STT LXR USER.
+(* Here we use the literal lexer and the user parameters to create the semantic lexer *)
+Module Import SemLexer := SemLexerFn STT LitLexer USER.
 Import SemLexer.Impl.
 
-
+(* And extract; extract_path returns the default path for extraction *)
 Set Warnings "-extraction-opaque-accessed,-extraction".
-Extraction "Evaluation/semantic/instance.ml" lex_sem rus.
+Compute (extract_path "JSON" Semantic).
+Extraction "Examples/JSON/Evaluation/Semantic/instance.ml" lex_sem rus.

@@ -4,6 +4,7 @@ Require Import Nat.
 Require Import Coq.Program.Wf.
 Require Import Coq.omega.Omega.
 Require Import FSets FSets.FMapAVL FSets.FMapFacts.
+Require Import Ascii.
 
 From Verbatim Require Import ltac.
 From Verbatim Require Import Orders.
@@ -20,6 +21,9 @@ Module Type SIGMA.
 
   Parameter compareT_trans : forall c x y z,
       compareT x y = c -> compareT y z = c -> compareT x z = c.
+
+  (* This is a bit superfluous and probably needs some validation unless its identity *)
+  Parameter ascii2Sigma : ascii -> Sigma.
 
 End SIGMA.
 
@@ -611,3 +615,10 @@ Module Type T.
   Declare Module Defs  : DefsT Ty.
   Export Defs.
 End T.
+
+Module regexTFn (Ty' : SIGMA) <: T.
+
+  Module Export Ty := Ty'.
+  Module Export Defs := DefsFn Ty.
+
+End regexTFn.

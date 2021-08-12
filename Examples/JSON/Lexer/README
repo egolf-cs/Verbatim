@@ -1,0 +1,5 @@
+These files:
+
+- Literal.v -- Performs lexical analysis without applying semantic actions
+- Semantic.v -- First applies Literal.v, then applies semantic action
+- FloatLexer.v -- For lexing and parsing float tokens for semantic actions
