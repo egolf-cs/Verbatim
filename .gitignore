@@ -12,6 +12,7 @@
 instance.ml
 instance.mli
 instancedriver
+evaluate
 *.o
 *.cmx
 *.data
