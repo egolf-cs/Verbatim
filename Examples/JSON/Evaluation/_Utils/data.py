@@ -7,7 +7,7 @@ def fcontent(f):
     tmp.close()
     return content
 
-c = fcontent("GDP4.json")
+c = fcontent("../_Utils/GDP.json")
 j = json.loads(c)
 
 for i in range(2,len(j),20):

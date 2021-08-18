@@ -1,5 +1,5 @@
 open Instance
-open L.Lex
+open LXR.LitLexer
 open Common
 
 let tokens_len_str ts = List.length ts
@@ -26,4 +26,4 @@ let lex_pre = lex' srus *)
 
 
 let xs = Array.to_list (Sys.readdir "data")
-let ps = map (fun x -> (print_evaluation (evaluate x lex_M 1 rus))) xs
+let ps = map (fun x -> (print_evaluation (evaluate x lex 1 rus))) xs

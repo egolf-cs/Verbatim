@@ -30,7 +30,6 @@ Verbatim/memo/correctness.v
 
 
 Verbatim/DFA/concrete_table.v
-Verbatim/DFA/concrete_state.v
 Verbatim/memo/concrete_memo.v
 
 

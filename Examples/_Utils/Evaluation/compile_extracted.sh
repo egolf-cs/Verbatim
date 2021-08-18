@@ -70,5 +70,9 @@ fi
 
 # < Compile the OCaml
 path=../../$lang/Evaluation/$lex_type
-ocamlopt -O3 -w -20 -w -26 -I $path $path/instance.mli $path/instance.ml common.ml $driver -o $path/evaluate
+ocamlopt -O3 -w -20 -w -26 -g -I $path $path/instance.mli $path/instance.ml common.ml $driver -o $path/evaluate
+# />
+
+# < Create symbolic link to plot.py
+ln plot.py $path/plot.py
 # />

@@ -4,6 +4,7 @@ Import ListNotations.
 From Verbatim Require Import ltac.
 From Verbatim Require Import regex.
 From Verbatim Require Import Table.
+From Verbatim Require Import DFA.
 From Verbatim Require Import Orders.
 
 Module FTable (R : regex.T) <: TABLE R.  

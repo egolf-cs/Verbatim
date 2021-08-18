@@ -54,7 +54,7 @@ fi
 
 # />
 
-# < Compile the OCaml
+# < Remove the compiled OCaml
 path=../../$lang/Evaluation/$lex_type
 rm $path/evaluate
 rm $path/instance.cmi

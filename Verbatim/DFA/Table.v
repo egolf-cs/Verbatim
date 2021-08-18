@@ -3,6 +3,7 @@ Import ListNotations.
 Require Import Coq.Program.Wf.
 Require Import Coq.omega.Omega.
 
+Require Import Coq.NArith.BinNat.
 
 From Verbatim Require Import ltac.
 From Verbatim Require Import regex.
@@ -763,6 +764,44 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
         rewrite H in *. apply concat_star. intros. apply IHe. apply H0. auto.
     Qed.                                                                                        
         
+    Fixpoint fill_Table_all'' (T : Table) (e : regex) (bs : list Sigma) (fuel : nat) : Table :=
+      match fuel with
+      | 0 => T
+      | S n =>
+        let
+          (* We need a helper function to apply fill_Table_all to each derivative of e *)
+          fix fill_Table_ds (bs : list Sigma) (bs' : list Sigma) :=
+          match bs' with
+          | [] => T
+          | c :: cs =>
+            let
+              (* fill the table with respect to the tail *)
+              T1 := fill_Table_ds bs cs in
+            let
+              (* now we'll do it with respect to c *)
+              d := canon (derivative c e) in
+            match get_eq T d with
+            | None =>
+              let
+                (* we didn't find a similar regex, we need to add d *)
+                T2 := add_state T1 d in
+              let
+                (* we also need to transition from regex e to regex d on symbol c *)
+                T3 := set_Table T2 e c d in
+              (* finally we need to fill up the table with respect to d *)
+              fill_Table_all'' T3 d bs n
+            | Some e' =>
+              (* In this case, we found a regex that has already been added to the table *)
+              (* Anytime we add a regex, we immediately call fill_Table_all for it *)
+              (* Therefore, we don't need to call fill_Table_all again *)
+              (* Instead, we transition from e to e' when we see c *)
+              set_Table T1 e c e'
+            end
+          end
+        in
+        fill_Table_ds bs bs
+      end.                                                                                    
+        
     Fixpoint fill_Table_all' (T : Table) (e : regex) (bs : list Sigma) (fuel : nat) : Table :=
       match fuel with
       | 0 => T
@@ -803,7 +842,142 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
 
     Definition fill_Table_all (T : Table) (e : regex) (bs : list Sigma) (fuel : nat) : Table :=
       fill_Table_all' T (canon e) bs fuel.
+
+    Lemma acc_rec_call' : forall fuel,
+        Acc (ltof positive Pos.to_nat) fuel
+        -> fuel <> xH
+        -> Acc (ltof positive Pos.to_nat) (Pos.pred fuel).
+    Proof.
+      intros. apply Acc_inv with (x := fuel); auto.
+      assert((1 < fuel)%positive).
+      { clear H. destruct fuel; try constructor; try contradiction. }
+      clear H0 H. apply Pos2Nat.inj_lt. 
+      apply Pos2Nat.inj_pred in H1. apply Pos2Nat.inj_lt. rewrite H1.
+      apply Nat.lt_pred_l. pose proof Pos2Nat.is_pos fuel. omega.
+    Defined.
+
+    Lemma acc_rec_call_xI : forall fuel p,
+        Acc (ltof positive Pos.to_nat) fuel
+        -> fuel = (p~1)%positive
+        -> Acc (ltof positive Pos.to_nat) (Pos.pred fuel).
+    Proof.
+      intros. apply acc_rec_call'; auto. intros C. rewrite C in H0. discriminate.
+    Defined.
     
+    Lemma acc_rec_call_xO : forall fuel p,
+        Acc (ltof positive Pos.to_nat) fuel
+        -> fuel = (p~0)%positive
+        -> Acc (ltof positive Pos.to_nat) (Pos.pred fuel).
+    Proof.
+      intros. apply acc_rec_call'; auto. intros C. rewrite C in H0. discriminate.
+    Defined.
+    
+    Lemma acc_rec_call_xH : forall fuel,
+        Acc (ltof positive Pos.to_nat) fuel
+        -> fuel = xH
+        -> Acc (ltof positive Pos.to_nat) (Pos.pred fuel).
+    Proof.
+      intros. rewrite H0 in *. sis. auto.
+    Defined.
+
+    Lemma Poslt_wf : forall p, Acc (ltof positive Pos.to_nat) p.
+    Proof.
+      pose proof well_founded_ltof positive Pos.to_nat. unfold well_founded in H. auto.
+    Qed.
+
+    Fixpoint traverse_pos' (fuel : positive)
+             (Ha : Acc (ltof positive Pos.to_nat) fuel)
+             {struct Ha} : positive :=
+      match fuel as fuel'
+            return fuel = fuel' -> _
+      with
+      | xH => fun Heq => xH
+      | xI p => fun Heq => traverse_pos' (Pos.pred fuel) (acc_rec_call_xI fuel p Ha Heq)
+      | xO p => fun Heq => traverse_pos' (Pos.pred fuel) (acc_rec_call_xO fuel p Ha Heq)
+      end eq_refl.
+
+    Definition traverse_pos (fuel : positive) : positive :=
+      traverse_pos' fuel (Poslt_wf _).
+
+    Fixpoint fill_Table_all'_bin (T : Table) (e : regex) (bs : list Sigma) (fuel : positive)
+             (Ha : Acc (ltof positive Pos.to_nat) fuel) {struct Ha} : Table :=
+      match fuel as fuel'
+            return fuel = fuel' -> _
+      with
+      | xH => fun _ => T
+      | xI p =>
+        fun Heq =>       
+          let
+            (* We need a helper function to apply fill_Table_all to each derivative of e *)
+            fix fill_Table_ds_bin (bs' : list Sigma) :=
+            match bs' with
+            | [] => T
+            | c :: cs =>
+              let
+                (* fill the table with respect to the tail *)
+                T1 := fill_Table_ds_bin cs in
+              let
+                (* now we'll do it with respect to c *)
+                d := canon (derivative c e) in
+              match get_eq T d with
+              | None =>
+                let
+                  (* we didn't find a similar regex, we need to add d *)
+                  T2 := add_state T1 d in
+                let
+                  (* we also need to transition from regex e to regex d on symbol c *)
+                  T3 := set_Table T2 e c d in
+                (* finally we need to fill up the table with respect to d *)
+                fill_Table_all'_bin T3 d bs (Pos.pred fuel) (acc_rec_call_xI fuel p Ha Heq)
+              | Some e' =>
+                (* In this case, we found a regex that has already been added to the table *)
+                (* Anytime we add a regex, we immediately call fill_Table_all for it *)
+                (* Therefore, we don't need to call fill_Table_all again *)
+                (* Instead, we transition from e to e' when we see c *)
+                set_Table T1 e c e'
+              end
+            end
+          in
+          fill_Table_ds_bin bs
+      | xO p => 
+        fun Heq =>       
+          let
+            (* We need a helper function to apply fill_Table_all to each derivative of e *)
+            fix fill_Table_ds_bin (bs' : list Sigma) :=
+            match bs' with
+            | [] => T
+            | c :: cs =>
+              let
+                (* fill the table with respect to the tail *)
+                T1 := fill_Table_ds_bin cs in
+              let
+                (* now we'll do it with respect to c *)
+                d := canon (derivative c e) in
+              match get_eq T d with
+              | None =>
+                let
+                  (* we didn't find a similar regex, we need to add d *)
+                  T2 := add_state T1 d in
+                let
+                  (* we also need to transition from regex e to regex d on symbol c *)
+                  T3 := set_Table T2 e c d in
+                (* finally we need to fill up the table with respect to d *)
+                fill_Table_all'_bin T3 d bs (Pos.pred fuel) (acc_rec_call_xO fuel p Ha Heq)
+              | Some e' =>
+                (* In this case, we found a regex that has already been added to the table *)
+                (* Anytime we add a regex, we immediately call fill_Table_all for it *)
+                (* Therefore, we don't need to call fill_Table_all again *)
+                (* Instead, we transition from e to e' when we see c *)
+                set_Table T1 e c e'
+              end
+            end
+          in
+          fill_Table_ds_bin bs
+      end eq_refl.
+
+    Definition fill_Table_all_bin (T : Table) (e : regex) (bs : list Sigma)
+               (fuel : positive) : Table :=
+      fill_Table_all'_bin T (canon e) bs fuel (Poslt_wf _).
 
   End FillTable.
 
@@ -1038,6 +1212,8 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
       intros. unfold fill_Table_all in *. eapply derived_closure_all'; eauto.
     Qed.
 
+
+
     Theorem derived_get_some : forall T e a e',
         derived T
         -> get_Table T e a = Some e'
@@ -1047,6 +1223,244 @@ Module DefsFn (R : regex.T) (TabTy : TABLE R).
     Qed.
 
   End Correct.
+
+  Module Export binary.
+
+    Lemma filler_eq_body : forall T e bs fuel Ha,
+      fill_Table_all'_bin T e bs fuel Ha
+      = match fuel as fuel' return (fuel = fuel' -> Table) with
+        | (p~1)%positive =>
+          fun Heq : fuel = (p~1)%positive =>
+            let
+              fix fill_Table_ds (bs' : list Sigma) : Table :=
+              match bs' with
+              | [] => T
+              | c :: cs =>
+                let T1 := fill_Table_ds cs in
+                let d := canon (derivative c e) in
+                match get_eq T d with
+                | Some e' => set_Table T1 e c e'
+                | None =>
+                  let T2 := add_state T1 d in
+                  let T3 := set_Table T2 e c d in
+                  fill_Table_all'_bin T3 d bs (Pos.pred fuel) (acc_rec_call_xI fuel p Ha Heq)
+                end
+              end in
+            fill_Table_ds bs
+        | (p~0)%positive =>
+          fun Heq : fuel = (p~0)%positive =>
+            let
+              fix fill_Table_ds (bs' : list Sigma) : Table :=
+              match bs' with
+              | [] => T
+              | c :: cs =>
+                let T1 := fill_Table_ds cs in
+                let d := canon (derivative c e) in
+                match get_eq T d with
+                | Some e' => set_Table T1 e c e'
+                | None =>
+                  let T2 := add_state T1 d in
+                  let T3 := set_Table T2 e c d in
+                  fill_Table_all'_bin T3 d bs (Pos.pred fuel) (acc_rec_call_xO fuel p Ha Heq)
+                end
+              end in
+            fill_Table_ds bs
+        | 1%positive => fun _ : fuel = 1%positive => T
+        end eq_refl.
+    Proof.
+      intros. unfold fill_Table_all'_bin. destruct Ha. auto.
+    Qed.
+
+    Theorem fill_bin'_equiv' : forall (x : positive) (Ha_x : Acc (ltof positive (Pos.to_nat)) x)
+                                 (p : positive) (Ha : Acc (ltof positive (Pos.to_nat)) p)
+                                 (bs : list Sigma) (T : Table) (e : regex),
+        x = p
+        -> fill_Table_all'_bin T e bs p Ha = fill_Table_all' T e bs (pred (Pos.to_nat p)).
+    Proof.
+      intros x Ha_x. induction Ha_x. intros. subst. destruct p eqn:E.
+      - destruct (Init.Nat.pred (Pos.to_nat p0~1)) eqn:E1.
+        {
+          rewrite <- Pos2Nat.inj_pred in E1. 2:{ constructor. }
+          pose proof Pos2Nat.is_pos (Pos.pred p0~1). rewrite E1 in H1. omega.
+        }
+        rewrite unfold_filler'.
+        rewrite filler_eq_body. simpl.
+        (* Sorry to anyone about to read this massive assert 
+           -- we just need the inner bs to be more general than the outer bs,
+         so we replace it with orig :) *)
+        assert(
+            exists orig,
+              (fix fill_Table_ds (bs' : list Sigma) : Table :=
+                 match bs' with
+                 | [] => T
+                 | c :: cs =>
+                   match get_eq T (canon (derivative c e)) with
+                   | Some e' => set_Table (fill_Table_ds cs) e c e'
+                   | None =>
+                     fill_Table_all'_bin
+                       (set_Table (add_state (fill_Table_ds cs) (canon (derivative c e))) e c
+                                  (canon (derivative c e))) (canon (derivative c e)) bs p0~0
+                       (acc_rec_call_xI p0~1 p0 Ha eq_refl)
+                   end
+                 end)
+              =  (fix fill_Table_ds (bs' : list Sigma) : Table :=
+                    match bs' with
+                    | [] => T
+                    | c :: cs =>
+                      match get_eq T (canon (derivative c e)) with
+                      | Some e' => set_Table (fill_Table_ds cs) e c e'
+                      | None =>
+                        fill_Table_all'_bin
+                          (set_Table (add_state (fill_Table_ds cs) (canon (derivative c e))) e c
+                                     (canon (derivative c e))) (canon (derivative c e)) orig p0~0
+                          (acc_rec_call_xI p0~1 p0 Ha eq_refl)
+                      end
+                    end)
+              /\ (fix fill_Table_ds (bs' : list Sigma) : Table :=
+                     match bs' with
+                     | [] => T
+                     | c :: cs =>
+                       match get_eq T (canon (derivative c e)) with
+                       | Some e' => set_Table (fill_Table_ds cs) e c e'
+                       | None =>
+                         fill_Table_all'
+                           (set_Table (add_state (fill_Table_ds cs) (canon (derivative c e))) e c
+                                      (canon (derivative c e))) (canon (derivative c e)) bs n
+                       end
+                     end)
+                = (fix fill_Table_ds (bs' : list Sigma) : Table :=
+                       match bs' with
+                       | [] => T
+                       | c :: cs =>
+                         match get_eq T (canon (derivative c e)) with
+                         | Some e' => set_Table (fill_Table_ds cs) e c e'
+                         | None =>
+                           fill_Table_all'
+                             (set_Table (add_state (fill_Table_ds cs) (canon (derivative c e))) e c
+                                        (canon (derivative c e))) (canon (derivative c e)) orig n
+                         end
+                       end)).
+        { eauto. }
+        destruct H1 as (orig & H1 & H2).
+        rewrite H1. rewrite H2. clear H1 H2.
+        induction bs; auto.
+        dm.
+        + apply f_equal with (f := fun T =>  set_Table T e a r). apply IHbs.
+        + rewrite IHbs. clear IHbs E0. rewrite H0 with (y := xO p0); auto. clear H0.
+          2: { constructor. }
+          assert(n = pred (Pos.to_nat p0~0)).
+          {
+            rewrite <- Pos2Nat.inj_pred in E1.
+            2: { constructor. }
+            simpl in E1. rewrite E1. omega.
+          } 
+          rewrite H0. auto.
+      - destruct (Init.Nat.pred (Pos.to_nat p0~0)) eqn:E1.
+        {
+          rewrite <- Pos2Nat.inj_pred in E1. 2:{ constructor. }
+          pose proof Pos2Nat.is_pos (Pos.pred p0~0). rewrite E1 in H1. omega.
+        }
+        rewrite unfold_filler'.
+        rewrite filler_eq_body. simpl.
+        assert(
+            exists orig,
+              (fix fill_Table_ds (bs' : list Sigma) : Table :=
+                 match bs' with
+                 | [] => T
+                 | c :: cs =>
+                   match get_eq T (canon (derivative c e)) with
+                   | Some e' => set_Table (fill_Table_ds cs) e c e'
+                   | None =>
+                     fill_Table_all'_bin
+                       (set_Table (add_state (fill_Table_ds cs) (canon (derivative c e))) e c
+                                  (canon (derivative c e))) (canon (derivative c e)) bs 
+                       (Pos.pred_double p0) (acc_rec_call_xO p0~0 p0 Ha eq_refl)
+                   end
+                 end)
+              = (fix fill_Table_ds (bs' : list Sigma) : Table :=
+                   match bs' with
+                   | [] => T
+                   | c :: cs =>
+                     match get_eq T (canon (derivative c e)) with
+                     | Some e' => set_Table (fill_Table_ds cs) e c e'
+                     | None =>
+                       fill_Table_all'_bin
+                         (set_Table (add_state (fill_Table_ds cs) (canon (derivative c e))) e c
+                                    (canon (derivative c e))) (canon (derivative c e)) orig 
+                         (Pos.pred_double p0) (acc_rec_call_xO p0~0 p0 Ha eq_refl)
+                     end
+                   end)
+              /\ (fix fill_Table_ds (bs' : list Sigma) : Table :=
+                   match bs' with
+                   | [] => T
+                   | c :: cs =>
+                     match get_eq T (canon (derivative c e)) with
+                     | Some e' => set_Table (fill_Table_ds cs) e c e'
+                     | None =>
+                       fill_Table_all'
+                         (set_Table (add_state (fill_Table_ds cs) (canon (derivative c e))) e c
+                                    (canon (derivative c e))) (canon (derivative c e)) bs n
+                     end
+                   end)
+                = (fix fill_Table_ds (bs' : list Sigma) : Table :=
+                     match bs' with
+                     | [] => T
+                     | c :: cs =>
+                       match get_eq T (canon (derivative c e)) with
+                       | Some e' => set_Table (fill_Table_ds cs) e c e'
+                       | None =>
+                         fill_Table_all'
+                           (set_Table (add_state (fill_Table_ds cs) (canon (derivative c e))) e c
+                                      (canon (derivative c e))) (canon (derivative c e)) orig n
+                       end
+                     end)).
+        { eauto. }
+        destruct H1 as (orig & H1 & H2).
+        rewrite H1. rewrite H2. clear H1 H2.
+        induction bs; auto.
+        dm.
+        + apply f_equal with (f := fun T =>  set_Table T e a r). apply IHbs.
+        + rewrite IHbs. clear IHbs E0. rewrite H0 with (y := (Pos.pred_double p0)); auto. clear H0.
+          2: {
+            unfold ltof.
+            assert(Pos.pred_double p0 = Pos.pred (xO p0)).
+            { auto. }
+            rewrite H1. rewrite Nat.succ_lt_mono. repeat rewrite <- Pos2Nat.inj_succ.
+            rewrite Pos.succ_pred; auto. intros; discriminate.
+          }
+          assert(n = (Init.Nat.pred (Pos.to_nat (Pos.pred_double p0)))).
+          {
+            rewrite <- Pos2Nat.inj_pred in E1.
+            2: { constructor. }
+            simpl in E1. rewrite E1. omega.
+          } 
+          rewrite H0. auto.
+      - simpl. rewrite filler_eq_body. auto.
+    Qed.
+        
+    Theorem fill_bin'_equiv : forall (p : positive) (Ha : Acc (ltof positive (Pos.to_nat)) p)
+                                 (bs : list Sigma) (T : Table) (e : regex),
+        fill_Table_all'_bin T e bs p Ha = fill_Table_all' T e bs (pred (Pos.to_nat p)).
+    Proof.
+      intros. eapply fill_bin'_equiv'; eauto.
+    Qed.
+
+    Theorem fill_bin_equiv : forall (p : positive) (bs : list Sigma) (T : Table) (e : regex),
+        fill_Table_all_bin T e bs p = fill_Table_all T e bs (pred (Pos.to_nat p)).
+    Proof.
+      intros. unfold fill_Table_all. unfold fill_Table_all_bin. apply fill_bin'_equiv.
+    Qed.
+      
+
+    Theorem derived_closure_all_bin : forall p bs e T T',
+        derived T
+        -> T' = fill_Table_all_bin T e bs p
+        -> derived T'.
+    Proof.
+      intros. rewrite fill_bin_equiv in H0. eapply derived_closure_all; eauto.
+    Qed.
+    
+  End binary.
 
 End DefsFn.
 

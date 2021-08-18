@@ -40,6 +40,26 @@ Module DFAFn (TabT : Table.T).
         if leb d2 d1 then d1 + 1 else d2 + 1
       | Star e0 => (regex_depth e0) + 1
       end.
+
+    Fixpoint regex_length (e : regex) : nat :=
+      match e with
+      | EmptySet
+      | EmptyStr
+      | Char _ => 1
+      | App e1 e2
+      | Union e1 e2 => 1 + (regex_length e1) + (regex_length e2)
+      | Star e1 => 1 + (regex_length e1)
+      end.
+
+    (* Computes positive with value 2^(n+1) - 1, which is larger than or equal to 2^n + 1 *)
+    Fixpoint Brzozowski_bound' (n : nat) : positive :=
+      match n with
+      | 0 => xH
+      | S m => xI (Brzozowski_bound' m)
+      end.
+
+    Definition Brzozowski_bound (e : regex) : positive :=
+      Brzozowski_bound' (regex_length e).
     
     Definition fin_states (es : reFS.t) :=
       reFS.filter nullable es.
@@ -87,7 +107,7 @@ Module DFAFn (TabT : Table.T).
 
     Definition regex2dfa (e : regex) : DFA :=
       let
-        T := fill_Table_all emptyTable (canon e) (char_set e) 20000
+        T := fill_Table_all_bin emptyTable (canon e) (char_set e) (Brzozowski_bound e)
       in
       let
         es := get_states T
@@ -137,13 +157,13 @@ Module DFAFn (TabT : Table.T).
     Proof.
       intros. 
       unfold regex2dfa in *. injection H; intros.
-      repeat(split).
+      repeat split.
       - apply derived_get_some in H3.
         + apply H3.
-        + eapply derived_closure_all; eauto. apply emptyTable_derived.
+        + eapply derived_closure_all_bin; eauto. apply emptyTable_derived.
       - apply derived_get_some in H3.
         + apply H3.
-        + eapply derived_closure_all; eauto. apply emptyTable_derived.
+        + eapply derived_closure_all_bin; eauto. apply emptyTable_derived.
       - inv H. auto.
       - auto.
     Qed.
