@@ -14,9 +14,11 @@ The directory LANG/Lexer contains two files Literal.v and Semantic.v. The file L
 
 At the bottoms of LANG/Literal.v and LANG/Semantic.v there are two extraction commands. The paths in these commands must be changed to reflect the change in language. The best way to compute the path is to run "Compute (extract_path "LANG" Literal)" or "Compute (extract_path "LANG" Semantic)", depending on which file we are modifying.
 
-The resulting path is relative to the location of Verbatim's Makefile. What this means is that running the extraction command interactively will fail; we must add the LANG/\*.v files to the \_CoqProject file. 
+The resulting path is relative to the location of Verbatim's Makefile. What this means is that running the extraction command interactively will fail; we must add the LANG/\*.v files to the \_CoqProject file.
 
 The Extraction command will fail during build unless we do "mkdir Examples/LANG/Evaluation/Literal" and "mkdir Examples/LANG/Evaluation/Semantic" because these are the directories where the extracted code will live.
+
+After adding these .v files to the \_CoqProject file and creating these directories, run make again.
 
 ## Compilation
 
@@ -26,4 +28,4 @@ To link the extracted ocaml with the driver code, we must run "./compile_extract
 
 ## Evaluation
 
-We will need to populate "Examples/LANG/Evaluation/Literal/data" and "Examples/LANG/Evaluation/Semantic/data" with our benchmarking data. When we run ./evaluate, it will put the results in the results folder. To plot the results, we simply run python3 plot.py.
+We will need to populate "Examples/LANG/Evaluation/Literal/data" and "Examples/LANG/Evaluation/Semantic/data" with our benchmarking data. This will be different for every domain and set of benchmarks we have. When we run ./evaluate, it will put the results in the results folder. To plot the results, we simply run python3 plot.py.
