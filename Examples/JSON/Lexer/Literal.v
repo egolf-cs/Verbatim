@@ -62,8 +62,12 @@ Definition ru_int := (INT, int_re).
 
 
 (** STRING **)
-Definition ru_string := (STRING, string_re).
-
+Definition unicode_digit_re := stringUnion "0123456789aAbBcCdDeEfF".
+Definition four_unicode_digits_re := IterApp [unicode_digit_re ; unicode_digit_re ; unicode_digit_re ; unicode_digit_re].
+Definition unicode_codepoint_re := App (stringApp "\u") four_unicode_digits_re.
+Definition json_char_re := IterUnion [ unicode_codepoint_re ; AZ_re; az_re; digit_re; ws_re; punc_re; esc_quote_re; esc_bslash_re ].
+Definition json_string_re := IterApp [quote_re; Star json_char_re; quote_re].
+Definition ru_string := (STRING, json_string_re).
 
 (** keywords **)
 Definition ru_true := (TRUE, stringApp "true").

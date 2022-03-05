@@ -4,12 +4,14 @@ open Common
 
 let tokens_len_str ts = List.length ts
 
-
+type coq_string = char list
+let str_of_coqstr (c : coq_string) : string = String.concat "" (List.map Char.escaped c)
 
 
 let rec print_evaluation results =
 match results with
 | fname, code_len, ts, rest_len, tokens ->
+  let () = List.iter (fun t -> print_endline (str_of_coqstr (show_token t))) tokens in
   let oc = open_out ("results/"^fname) in
   let tokens_len = tokens_len_str tokens in
   let ts' = times_to_string ts in

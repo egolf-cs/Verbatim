@@ -16,5 +16,5 @@ Proof.
   intros. destruct a.
   destruct b; destruct b0; destruct b1; destruct b2;
     destruct b3; destruct b4; destruct b5; destruct b6;
-      repeat(try(left; reflexivity); right).
+  repeat(try(left; reflexivity); right).
 Qed.

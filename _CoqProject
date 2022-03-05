@@ -42,3 +42,12 @@ Examples/_Utils/Lexer.v
 Examples/JSON/Lexer/Literal.v
 Examples/JSON/Lexer/FloatLexer.v
 Examples/JSON/Lexer/Semantic.v
+
+Examples/PPM/Lexer/Literal.v
+Examples/PPM/Lexer/Semantic.v
+
+Examples/Newick/Lexer/Literal.v
+Examples/Newick/Lexer/Semantic.v
+
+Examples/XML/Lexer/Literal.v
+Examples/XML/Lexer/Semantic.v

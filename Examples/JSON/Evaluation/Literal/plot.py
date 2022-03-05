@@ -18,7 +18,7 @@ def poly_eq(coeffs):
 
 
 fs = listdir(input_dir)
-fs.sort(key = lambda x: int(x[:x.find(".")]))
+# fs.sort(key = lambda x: int(x[:x.find(".")]))
 print(fs)
 fs = [input_dir+"/"+f for f in fs]
 # [:int(len(fs)/2)]
@@ -54,4 +54,5 @@ axis.set_xlabel("# Characters")
 axis.set_ylabel("Processing Time (s)")
 
 plt.tight_layout()
-plt.show()
+#plt.show()
+plt.savefig("json_results.png")
